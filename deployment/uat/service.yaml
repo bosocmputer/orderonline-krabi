@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sml-wawa-shop-app-uat
+  namespace: sml-uat
+spec:
+  type: NodePort
+  ports:
+    - name: sml-wawa-shop-app-uat-port
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+      nodePort: 30820
+  selector: 
+    app: sml-wawa-shop-app-uat
