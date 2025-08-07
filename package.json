@@ -1,5 +1,5 @@
 {
-    "name": "wawa-shop",
+    "name": "order-online",
     "version": "4.2.0",
     "scripts": {
         "dev": "vite",
