@@ -17,10 +17,10 @@ export default {
      */
     getEmployees(search = '', limit = null) {
         return new Promise((resolve, reject) => {
-            console.log(`กำลังเรียก API: ${apiClient.defaults.baseURL}/service/wawashopservice/getEmployeeList?search=${encodeURIComponent(search)}`);
+            console.log(`กำลังเรียก API: ${apiClient.defaults.baseURL}//getEmployeeList?search=${encodeURIComponent(search)}`);
 
             apiClient
-                .get('service/wawashopservice/getEmployeeList', {
+                .get('/getEmployeeList', {
                     params: {
                         search: search
                     }
@@ -59,7 +59,7 @@ export default {
     getEmployeeByCode(code) {
         return new Promise((resolve, reject) => {
             apiClient
-                .get('service/wawashopservice/getEmployeeList', {
+                .get('/getEmployeeList', {
                     params: {
                         code: code
                     }

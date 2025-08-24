@@ -1,4 +1,4 @@
-// services/CategoryService.js
+// services/WarehouseList.js
 import axios from 'axios';
 
 const apiClient = axios.create({
@@ -13,31 +13,26 @@ export default {
      * ดึงรายการหมวดหมู่ทั้งหมด
      * @returns {Promise} รายการหมวดหมู่
      */
-    getCategories() {
+    getWarehouseList() {
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
             apiClient
-                .get('/getCategoryList')
+                .get('/getWarehouseList')
                 .then((response) => {
                     // ตรวจสอบว่าข้อมูลมีโครงสร้างที่ถูกต้อง
-                    const categories = response.data;
+                    const warehouses = response.data;
 
-                    // เพิ่มหมวดหมู่ "ทั้งหมด" เป็นรายการแรก
-                    const enhancedCategories = {
+                    const enhancedWarehouses = {
                         data: [
-                            {
-                                code: 'all',
-                                name: 'ทั้งหมด'
-                            },
                             // แปลงข้อมูลจาก API เพื่อให้ตรงกับโครงสร้างที่ต้องการ
-                            ...categories.data.map((category) => ({
-                                code: category.categoryCode || category.code,
-                                name: category.categoryName || category.name
+                            ...warehouses.data.map((warehouse) => ({
+                                code: warehouse.warehouseCode || warehouse.code,
+                                name: warehouse.warehouseName || warehouse.name
                             }))
                         ],
                         success: true
                     };
-                    resolve(enhancedCategories);
+                    resolve(enhancedWarehouses);
                 })
                 .catch((error) => {
                     console.error('เกิดข้อผิดพลาดในการเรียก API:', error);

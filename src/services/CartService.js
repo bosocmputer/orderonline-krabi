@@ -12,21 +12,33 @@ const apiClient = axios.create({
 class CartService {
     // เพิ่มสินค้าลงตะกร้า
     async addItemToCart(cartItems) {
-        return apiClient.post('service/wawashopservice/additemtocart', cartItems);
+        return apiClient.post('/additemtocart', cartItems);
     }
 
     // ดึงรายการสินค้าในตะกร้า
-    async getCartItems(custCode) {
-        return apiClient.get('service/wawashopservice/getcartitemlist', {
-            params: {
-                cust_code: custCode
-            }
+    async getCartItems(custCode, whCode = null) {
+        const shelfCode = localStorage.getItem('_shelf_code');
+        const params = {
+            cust_code: custCode,
+            wh_code: whCode,
+            shelf_code: shelfCode
+        };
+
+        // เพิ่ม wh_code ถ้ามีการส่งมาและไม่เป็น null หรือ "null"
+        if (whCode && whCode !== 'null' && whCode.trim() !== '') {
+            params.wh_code = whCode;
+        }
+
+        console.log('CartService.getCartItems params:', params);
+
+        return apiClient.get('/getcartitemlist', {
+            params: params
         });
     }
 
     // ลบสินค้าออกจากตะกร้า
     async removeItemFromCart(custCode, itemCode, unitCode) {
-        return apiClient.post('service/wawashopservice/removeitemfromcart', {
+        return apiClient.post('/removeitemfromcart', {
             cust_code: custCode,
             item_code: itemCode,
             unit_code: unitCode
@@ -35,7 +47,7 @@ class CartService {
 
     // ลบสินค้าออกจากตะกร้า (ใหม่)
     async deleteItem(guidCode, custCode) {
-        return apiClient.get('service/wawashopservice/deleteItem', {
+        return apiClient.get('/deleteItem', {
             params: {
                 guid_code: guidCode,
                 cust_code: custCode
@@ -45,7 +57,7 @@ class CartService {
 
     // ล้างตะกร้าทั้งหมด
     async deleteAllItems(custCode) {
-        return apiClient.get('service/wawashopservice/deleteAllItems', {
+        return apiClient.get('/deleteAllItems', {
             params: {
                 cust_code: custCode
             }
@@ -55,14 +67,16 @@ class CartService {
     // อัปเดตจำนวนสินค้าในตะกร้า (ใช้ endpoint เดียวกับ addItemToCart)
     async updateCartItemQuantity(cartItems) {
         // ใช้ endpoint เดียวกับการเพิ่มสินค้า
-        return apiClient.post('service/wawashopservice/additemtocart', cartItems);
+        return apiClient.post('/additemtocart', cartItems);
     }
 
     // ดึงข้อมูลสินค้าในตะกร้าพร้อมราคายืนยัน
     async getCartOrder(custCode) {
-        return apiClient.get('service/wawashopservice/getcartorder', {
+        const saleType = localStorage.getItem('_saleType');
+        return apiClient.get('/getcartorder', {
             params: {
-                cust_code: custCode
+                cust_code: custCode,
+                sale_type: saleType
             }
         });
     }
@@ -78,7 +92,7 @@ class CartService {
 
             while (retries >= 0) {
                 try {
-                    const response = await apiClient.post('service/wawashopservice/sendorder', orderData);
+                    const response = await apiClient.post('/sendorder', orderData);
                     console.log('API Response:', response);
                     return response;
                 } catch (error) {
@@ -102,7 +116,7 @@ class CartService {
     }
 
     async cancelOrder(orderData) {
-        return apiClient.post('service/wawashopservice/cancelOrder', orderData);
+        return apiClient.post('/cancelOrder', orderData);
     }
 }
 

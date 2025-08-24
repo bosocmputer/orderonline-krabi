@@ -40,6 +40,13 @@ const timeUpdateInterval = ref(null);
 const multiSelectMode = ref(false);
 const selectedOrders = ref([]);
 
+// ตรวจสอบการตั้งค่า QR Code API
+const isQRPaymentEnabled = computed(() => {
+    const qrApiUrl = import.meta.env.VITE_QR_API_URL;
+    const qrApiKey = import.meta.env.VITE_QR_API_KEY;
+    return qrApiUrl && qrApiUrl.trim() !== '' && qrApiKey && qrApiKey.trim() !== '';
+});
+
 // สถานะของออเดอร์และสีที่ใช้แสดง
 const orderStatuses = {
     success: { label: 'สำเร็จ', color: 'success', icon: 'pi pi-check-circle' },
@@ -506,6 +513,17 @@ async function savePaymentTransaction() {
 
 // ฟังก์ชันแสดง dialog ชำระเงิน QR Code
 function showQRPayment(orders) {
+    // ตรวจสอบว่า QR Payment ใช้งานได้หรือไม่
+    if (!isQRPaymentEnabled.value) {
+        toast.add({
+            severity: 'error',
+            summary: 'ไม่สามารถใช้งานได้',
+            detail: 'ระบบชำระเงิน QR Code ไม่ได้เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
+            life: 5000
+        });
+        return;
+    }
+
     if (!Array.isArray(orders)) {
         orders = [orders];
     }
@@ -713,7 +731,7 @@ onMounted(fetchOrderHistory);
                     </div>
 
                     <!-- ย้ายปุ่มเลือกหลายรายการมาไว้ด้านขวาของส่วนหัว -->
-                    <div v-if="payableOrdersCount > 1 && !loading && filteredOrders.length > 0">
+                    <div v-if="payableOrdersCount > 1 && !loading && filteredOrders.length > 0 && isQRPaymentEnabled">
                         <Button
                             :label="multiSelectMode ? 'ยกเลิกการเลือก' : 'เลือกหลายรายการ'"
                             :icon="multiSelectMode ? 'pi pi-times' : 'pi pi-check-square'"
@@ -748,7 +766,7 @@ onMounted(fetchOrderHistory);
                             class="p-button-sm"
                             @click="selectAllPayableOrders"
                         />
-                        <Button label="ชำระเงินที่เลือก" icon="pi pi-wallet" severity="warning" class="p-button-sm" @click="paySelectedOrders" :disabled="selectedOrders.length === 0" />
+                        <Button label="ชำระเงินที่เลือก" icon="pi pi-wallet" severity="warning" class="p-button-sm" @click="paySelectedOrders" :disabled="selectedOrders.length === 0 || !isQRPaymentEnabled" v-if="isQRPaymentEnabled" />
                     </div>
                 </div>
             </div>
@@ -855,8 +873,15 @@ onMounted(fetchOrderHistory);
                     <!-- Order actions -->
                     <div class="p-4">
                         <div class="flex justify-end gap-2">
-                            <!-- ปุ่มชำระเงิน QR Code - แสดงเฉพาะเมื่อไม่ได้อยู่ในโหมดเลือกหลายรายการ -->
-                            <Button v-if="(order.status === 'payment' || order.status === 'partial') && !multiSelectMode" label="ชำระเงิน" icon="pi pi-qrcode" class="p-button-warning p-button-sm" @click="showQRPayment(order)" :disabled="loading" />
+                            <!-- ปุ่มชำระเงิน QR Code - แสดงเฉพาะเมื่อไม่ได้อยู่ในโหมดเลือกหลายรายการ และ QR API ใช้งานได้ -->
+                            <Button
+                                v-if="(order.status === 'payment' || order.status === 'partial') && !multiSelectMode && isQRPaymentEnabled"
+                                label="ชำระเงิน"
+                                icon="pi pi-qrcode"
+                                class="p-button-warning p-button-sm"
+                                @click="showQRPayment(order)"
+                                :disabled="loading"
+                            />
 
                             <!-- ปุ่มเลือกหรือยกเลิกการเลือกสำหรับโหมดเลือกหลายรายการ -->
                             <Button
@@ -1093,7 +1118,13 @@ onMounted(fetchOrderHistory);
 
                 <template #footer>
                     <div class="flex justify-between gap-2">
-                        <Button v-if="selectedOrder && (selectedOrder.status === 'payment' || selectedOrder.status === 'partial')" label="ชำระเงิน QR Code" icon="pi pi-qrcode" severity="warning" @click="showQRPayment(selectedOrder)" />
+                        <Button
+                            v-if="selectedOrder && (selectedOrder.status === 'payment' || selectedOrder.status === 'partial') && isQRPaymentEnabled"
+                            label="ชำระเงิน QR Code"
+                            icon="pi pi-qrcode"
+                            severity="warning"
+                            @click="showQRPayment(selectedOrder)"
+                        />
                         <div class="flex gap-2 ml-auto">
                             <Button label="ปิด" icon="pi pi-times" outlined @click="displayOrderDetails = false" />
                         </div>

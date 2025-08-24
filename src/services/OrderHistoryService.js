@@ -10,7 +10,7 @@ const apiClient = axios.create({
 class OrderHistoryService {
     // ดึงประวัติการสั่งซื้อตาม customer code
     async getOrderHistory(custCode, status = '') {
-        return apiClient.get('service/wawashopservice/getOrderHistory', {
+        return apiClient.get('/getOrderHistory', {
             params: {
                 cust_code: custCode,
                 status: status
@@ -20,7 +20,7 @@ class OrderHistoryService {
 
     // ดึงรายละเอียดคำสั่งซื้อแต่ละรายการ
     async getOrderDetail(custCode, docNo) {
-        return apiClient.get('service/wawashopservice/getOrderDetail', {
+        return apiClient.get('/getOrderDetail', {
             params: {
                 cust_code: custCode,
                 doc_no: docNo
@@ -30,7 +30,7 @@ class OrderHistoryService {
 
     // ชำระเงินผ่าน QR Promptpay
     async payOrder(paymentData) {
-        return apiClient.post('service/wawashopservice/pay', paymentData);
+        return apiClient.post('/pay', paymentData);
     }
 }
 

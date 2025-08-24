@@ -78,12 +78,8 @@ export const useAuthenStore = defineStore('authen', {
                     localStorage.setItem('_userCode', userData.user_code);
                     localStorage.removeItem('_empCode'); // ล้างรหัสพนักงานออกจาก localStorage
 
-                    // โหลดข้อมูลตะกร้าสำหรับลูกค้าคนนี้ โดยบังคับให้รีเฟรชข้อมูลใหม่
-                    try {
-                        await cartStore.loadCartItems(true);
-                    } catch (error) {
-                        console.error('Error loading cart items after login:', error);
-                    }
+                    // ไม่โหลดข้อมูลตะกร้าทันที ให้รอจนกว่าจะมีการยืนยันการตั้งค่าคลัง
+                    // โหลดข้อมูลตะกร้าจะทำในหน้า Login หลังจากยืนยันการตั้งค่าแล้ว
 
                     return true; // เพิ่มการ return true เพื่อบอกว่าล็อกอินสำเร็จ
                 } else {
@@ -135,12 +131,8 @@ export const useAuthenStore = defineStore('authen', {
                     localStorage.setItem('_empCode', empData.user_code);
                     localStorage.removeItem('_userCode'); // ล้างรหัสลูกค้าออกจาก localStorage
 
-                    // โหลดข้อมูลตะกร้าสำหรับพนักงานคนนี้ โดยบังคับให้รีเฟรชข้อมูลใหม่
-                    try {
-                        await cartStore.loadCartItems(true);
-                    } catch (error) {
-                        console.error('Error loading cart items after login:', error);
-                    }
+                    // ไม่โหลดข้อมูลตะกร้าทันที ให้รอจนกว่าจะมีการยืนยันการตั้งค่าคลัง
+                    // โหลดข้อมูลตะกร้าจะทำในหน้า Login หลังจากยืนยันการตั้งค่าแล้ว
 
                     return true; // เพิ่มการ return ค่าเพื่อให้หน้า login รู้ว่าล็อกอินสำเร็จ
                 } else {

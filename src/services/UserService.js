@@ -18,7 +18,7 @@ export default {
     loginCustomer(userCode, password) {
         return new Promise((resolve, reject) => {
             apiClient
-                .get('service/wawashopservice/logincus', {
+                .get('/logincus', {
                     params: {
                         user_code: userCode,
                         password: password
@@ -47,7 +47,7 @@ export default {
     loginEmployee(userCode, password) {
         return new Promise((resolve, reject) => {
             apiClient
-                .get('service/wawashopservice/loginemp', {
+                .get('/loginemp', {
                     params: {
                         user_code: userCode,
                         password: password

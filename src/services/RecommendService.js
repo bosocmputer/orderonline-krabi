@@ -24,7 +24,7 @@ export default {
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
             apiClient
-                .get(`service/wawashopservice/getProductList`, {
+                .get(`/getProductList`, {
                     params: {
                         cust_code: custCode || '',
                         search: '',
@@ -79,13 +79,19 @@ export default {
      * @returns {boolean} มีหน้าถัดไปหรือไม่
      */
     hasNextPage(currentPage, pagination) {
-        if (pagination && pagination.totalPage) {
-            return currentPage < pagination.totalPage - 1;
+        if (pagination && pagination.totalPage !== undefined) {
+            const hasNext = currentPage < pagination.totalPage - 1;
+            console.log('hasNextPage check:', {
+                currentPage,
+                totalPage: pagination.totalPage,
+                hasNext
+            });
+            return hasNext;
         }
 
-        // หากไม่มีข้อมูล pagination จะสมมติว่ามีหน้าถัดไป
-        // จนกว่าจะได้รับข้อมูลว่าไม่มีสินค้าเพิ่มเติม
-        return true;
+        // หากไม่มีข้อมูล pagination ให้ return false เพื่อหยุด auto scroll
+        console.log('No pagination data available, stopping auto scroll');
+        return false;
     },
 
     /**
@@ -102,7 +108,7 @@ export default {
         // ใช้ endpoint ที่คุณให้มาเพื่อดึงรูปภาพสินค้า
         const baseUrl = import.meta.env.VITE_APP_API.endsWith('/') ? import.meta.env.VITE_APP_API.slice(0, -1) : import.meta.env.VITE_APP_API;
 
-        return `${baseUrl}/service/wawashopservice/images?item_code=${itemCode}`;
+        return `${baseUrl}//images?item_code=${itemCode}`;
     },
 
     /**

@@ -10,7 +10,7 @@ const apiClient = axios.create({
 class DocHistoryService {
     // ดึงรายการเอกสาร
     async getDocList(custCode, transFlag = '') {
-        return apiClient.get('service/wawashopservice/getDocList', {
+        return apiClient.get('/getDocList', {
             params: {
                 cust_code: custCode,
                 trans_flag: transFlag
@@ -20,7 +20,7 @@ class DocHistoryService {
 
     // ดึงรายละเอียดเอกสาร
     async getDocDetail(custCode, docNo) {
-        return apiClient.get('service/wawashopservice/getDocDetail', {
+        return apiClient.get('/getDocDetail', {
             params: {
                 cust_code: custCode,
                 doc_no: docNo
@@ -30,7 +30,7 @@ class DocHistoryService {
 
     // ดึงยอดเงินคงค้าง
     async getTotalBalance(custCode) {
-        return apiClient.get('service/wawashopservice/getTotalBalance', {
+        return apiClient.get('/getTotalBalance', {
             params: {
                 cust_code: custCode
             }
@@ -39,7 +39,7 @@ class DocHistoryService {
 
     // ดึงรายการเงินล่วงหน้า
     async getAdvancePayments(custCode) {
-        return apiClient.get('service/wawashopservice/getAdvancePayment', {
+        return apiClient.get('/getAdvancePayment', {
             params: {
                 cust_code: custCode
             }

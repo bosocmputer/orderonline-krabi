@@ -383,7 +383,7 @@ function handleQuantityKeydown(event) {
                         <div class="flex justify-between items-start mb-2">
                             <div class="mr-2">
                                 <div class="text-base sm:text-lg font-medium hover:text-primary cursor-pointer" @click="router.push(`/products/${item.id}`)">
-                                    {{ item.item_code }}
+                                    {{ item.item_code }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                                 </div>
                                 <div class="text-base sm:text-lg font-medium hover:text-primary cursor-pointer" @click="router.push(`/products/${item.id}`)">
                                     {{ item.item_name }}

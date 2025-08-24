@@ -49,13 +49,20 @@ onBeforeUnmount(() => {
 // เริ่มการเลื่อนอัตโนมัติ
 // แก้ไขเฉพาะฟังก์ชัน startAutoScroll เพื่อให้ใช้ระยะเลื่อนเดียวกันกับปุ่มซ้าย-ขวา
 function startAutoScroll() {
-    if (!scrollContainer.value || isHovering.value) return;
+    if (!scrollContainer.value || isHovering.value || !hasMoreRecommended.value) {
+        console.log('Auto scroll not started - container:', !!scrollContainer.value, 'hovering:', isHovering.value, 'hasMore:', hasMoreRecommended.value);
+        return;
+    }
 
     // ล้าง interval เดิมก่อน (ถ้ามี)
     stopAutoScroll();
 
     autoScrollInterval.value = setInterval(() => {
-        if (!scrollContainer.value || isHovering.value) return;
+        if (!scrollContainer.value || isHovering.value || !hasMoreRecommended.value) {
+            console.log('Auto scroll stopped during interval - container:', !!scrollContainer.value, 'hovering:', isHovering.value, 'hasMore:', hasMoreRecommended.value);
+            stopAutoScroll();
+            return;
+        }
 
         const container = scrollContainer.value;
         const maxScrollLeft = container.scrollWidth - container.clientWidth;
@@ -73,7 +80,8 @@ function startAutoScroll() {
 
         // ตรวจสอบว่าเลื่อนไปใกล้สุดทางขวาหรือไม่ เพื่อโหลดข้อมูลเพิ่ม
         setTimeout(() => {
-            if (container.scrollWidth - container.scrollLeft - container.clientWidth < 300 && hasMoreRecommended.value) {
+            if (container.scrollWidth - container.scrollLeft - container.clientWidth < 300 && hasMoreRecommended.value && !loadingRecommended.value) {
+                console.log('Auto scroll loading more recommended products');
                 loadMoreRecommended();
             }
         }, 300);
@@ -113,12 +121,37 @@ async function loadRecommendedProducts(page = 0, reset = false) {
         }
 
         recommendedPage.value = result.pagination.page;
-        hasMoreRecommended.value = RecommendService.hasNextPage(recommendedPage.value, result.pagination);
+
+        // ตรวจสอบว่ามีสินค้าเพิ่มเติมหรือไม่
+        const hasNextPageFromService = RecommendService.hasNextPage(recommendedPage.value, result.pagination);
+        const hasDataReturned = result.data && result.data.length > 0;
+
+        // ถ้าไม่มีข้อมูลกลับมา หรือไม่มีหน้าถัดไป ให้หยุด
+        hasMoreRecommended.value = hasNextPageFromService && hasDataReturned;
+
+        console.log('Recommended products load result:', {
+            page: recommendedPage.value,
+            hasNextPage: hasNextPageFromService,
+            dataLength: result.data?.length || 0,
+            hasMoreRecommended: hasMoreRecommended.value,
+            totalPage: result.pagination?.totalPage,
+            currentPage: result.pagination?.page
+        });
+
+        // ถ้าไม่มีข้อมูลเพิ่มเติม ให้หยุด auto scroll
+        if (!hasMoreRecommended.value) {
+            console.log('No more recommended products available - stopping auto scroll');
+            stopAutoScroll();
+        }
 
         // หลังจากโหลดข้อมูลสำเร็จ ยกเลิกสถานะการโหลดเริ่มต้น
         initialLoading.value = false;
     } catch (error) {
         console.error('Error loading recommended products:', error);
+        // เมื่อเกิดข้อผิดพลาด ให้หยุด auto scroll ด้วย
+        hasMoreRecommended.value = false;
+        stopAutoScroll();
+
         // แสดง Toast แจ้งเตือนเมื่อเกิดข้อผิดพลาด
         toast.add({
             severity: 'error',
@@ -134,8 +167,12 @@ async function loadRecommendedProducts(page = 0, reset = false) {
 
 // โหลดสินค้าแนะนำหน้าถัดไป
 function loadMoreRecommended() {
-    if (loadingRecommended.value || !hasMoreRecommended.value) return;
+    if (loadingRecommended.value || !hasMoreRecommended.value) {
+        console.log('Skipping loadMoreRecommended - loading:', loadingRecommended.value, 'hasMore:', hasMoreRecommended.value);
+        return;
+    }
 
+    console.log('Loading more recommended products, current page:', recommendedPage.value);
     const nextPage = recommendedPage.value + 1;
     loadRecommendedProducts(nextPage);
 }
@@ -164,7 +201,8 @@ function scrollRight() {
 
         // ตรวจสอบว่าเลื่อนไปใกล้สุดทางขวาหรือยัง
         setTimeout(() => {
-            if (container.scrollWidth - container.scrollLeft - container.clientWidth < 300 && hasMoreRecommended.value) {
+            if (container.scrollWidth - container.scrollLeft - container.clientWidth < 300 && hasMoreRecommended.value && !loadingRecommended.value) {
+                console.log('Manual scroll right loading more recommended products');
                 loadMoreRecommended();
             }
         }, 300);

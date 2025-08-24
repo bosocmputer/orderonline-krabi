@@ -119,7 +119,7 @@ export const useCartStore = defineStore('cart', () => {
     }
 
     // เพิ่มฟังก์ชันสำหรับโหลดตะกร้าด้วย customer code โดยเฉพาะ
-    async function loadCartItemsForCustomer(customerCode) {
+    async function loadCartItemsForCustomer(customerCode, whCode = null) {
         try {
             isLoading.value = true;
             error.value = null;
@@ -132,7 +132,9 @@ export const useCartStore = defineStore('cart', () => {
             // กำหนดค่า custCode จาก parameter ที่ส่งมา
             custCode.value = customerCode;
 
-            const response = await CartService.getCartItems(customerCode);
+            console.log('cartStore.loadCartItemsForCustomer called with:', { customerCode, whCode });
+
+            const response = await CartService.getCartItems(customerCode, whCode);
             if (response.data && response.data.success && response.data.data) {
                 // แปลงข้อมูลให้มีรูปแบบเดียวกัน
                 cartItems.value = (response.data.data || []).map((item) => ({
@@ -462,7 +464,8 @@ export const useCartStore = defineStore('cart', () => {
             // สร้างค่า remark ที่เหมาะสม
             // ใช้ค่า remark ที่ผู้ใช้กรอกเข้ามา ถ้าไม่มีให้ใช้ค่าเริ่มต้น
             const remarkValue = checkoutData.remark;
-
+            const whCode = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+            const saleType = localStorage.getItem('_saleType');
             // สร้างข้อมูลสำหรับส่งไป API
             const orderData = {
                 cust_code: localStorage.getItem('_userCode') || '',
@@ -479,14 +482,16 @@ export const useCartStore = defineStore('cart', () => {
                 remark: remarkValue, // ใช้ค่าหมายเหตุที่ผู้ใช้กรอก
                 send_type: checkoutData.send_type || '0',
                 address: checkoutData.address || '',
-                address_name: checkoutData.address_name || ''
+                address_name: checkoutData.address_name || '',
+                wh_code: whCode,
+                sale_type: saleType
             };
 
             // Add more detailed logging
             console.log('Checkout process started');
             console.log('Checkout data received:', JSON.stringify(checkoutData, null, 2));
             console.log('Order data to be sent:', JSON.stringify(orderData, null, 2));
-            console.log('API endpoint:', import.meta.env.VITE_APP_API + 'service/wawashopservice/sendorder');
+            console.log('API endpoint:', import.meta.env.VITE_APP_API + '/sendorder');
 
             try {
                 // ส่งข้อมูลไปยัง API

@@ -1,12 +1,16 @@
 <script setup>
 import ProductService from '@/services/ProductService';
+import WarehouseService from '@/services/WarehouseList';
 import { useAuthenStore } from '@/stores/authen';
+import { useCartStore } from '@/stores/cartStore';
 import ProductDetailDialog from '@/views/pages/ProductDetailDialog.vue';
 import Button from 'primevue/button';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import ProgressSpinner from 'primevue/progressspinner';
+import RadioButton from 'primevue/radiobutton';
+import Select from 'primevue/select';
 import Skeleton from 'primevue/skeleton';
 import Tag from 'primevue/tag';
 import Toast from 'primevue/toast';
@@ -22,6 +26,7 @@ const props = defineProps({
 });
 
 const authenStore = useAuthenStore();
+const cartStore = useCartStore();
 const isAuthenticated = computed(() => authenStore.isAuthenticated);
 const route = useRoute();
 
@@ -37,6 +42,25 @@ const searchQuery = ref('');
 const loadingProducts = ref(true);
 const favoriteFilterActive = ref(false);
 const isSearching = ref(false); // เพิ่มตัวแปรสำหรับติดตามสถานะการค้นหา
+
+// ข้อมูลสำหรับ Select ปียางรถยนต์
+const currentYear = new Date().getFullYear();
+const selectedTireYear = ref(currentYear);
+const tireYearOptions = ref([]);
+
+// สร้างตัวเลือกปี (ปีปัจจุบันและย้อนหลัง 5 ปี)
+for (let i = 0; i <= 5; i++) {
+    tireYearOptions.value.push({
+        label: (currentYear - i).toString(),
+        value: currentYear - i
+    });
+}
+
+// ข้อมูลสำหรับการตั้งค่าคลังและประเภทการขาย
+const selectedWarehouse = ref(null);
+const warehouseOptions = ref([]);
+const isLoadingWarehouses = ref(false);
+const saleType = ref(1);
 
 // สำหรับ Skeleton Loading
 const initialLoading = ref(true);
@@ -59,13 +83,23 @@ onMounted(() => {
     // ตรวจสอบค่า favorite จาก query parameters
     favoriteFilterActive.value = route.query.favorite === '1';
 
+    // โหลดค่าปียางรถยนต์จาก localStorage (ถ้ามี) ถ้าไม่มี ให้บันทึกเป็นปีปัจจุบัน
+    const savedTireYear = localStorage.getItem('_shelf_code');
+    if (savedTireYear) {
+        selectedTireYear.value = parseInt(savedTireYear);
+    } else {
+        // บันทึกค่าเริ่มต้น (ปีปัจจุบัน) ลง localStorage
+        localStorage.setItem('_shelf_code', currentYear.toString());
+    }
+
+    // โหลดค่าการตั้งค่าจาก localStorage
+    loadSettingsFromLocalStorage();
+
+    // โหลดรายการคลัง
+    loadWarehouses();
+
     // โหลดข้อมูลสินค้าทันที
     loadProducts();
-
-    // ตั้งค่า Intersection Observer หลังจากโหลดข้อมูลเสร็จ
-    nextTick(() => {
-        setupInfiniteScroll();
-    });
 
     // เพิ่ม event listener สำหรับการเลื่อน
     window.addEventListener('scroll', checkScrollPosition);
@@ -84,11 +118,16 @@ onUnmounted(() => {
 // ตั้งค่า Intersection Observer สำหรับการโหลดข้อมูลแบบ Infinite Scroll
 let observer;
 function setupInfiniteScroll() {
+    // ตรวจสอบว่ามี observer อยู่แล้วหรือไม่
+    if (observer) {
+        observer.disconnect();
+    }
+
     // สร้าง IntersectionObserver ใหม่
     observer = new IntersectionObserver(
         (entries) => {
             if (entries[0].isIntersecting && !isLoadingMore.value && hasMoreItems.value && !initialLoading.value) {
-                console.log('Loading more products from observer');
+                console.log('Observer triggered: Loading more products, current page:', pagination.value.page);
                 loadMoreProducts();
             }
         },
@@ -99,7 +138,7 @@ function setupInfiniteScroll() {
     setTimeout(() => {
         if (observerTarget.value) {
             observer.observe(observerTarget.value);
-            console.log('Observer attached to target');
+            console.log('Observer attached to target, hasMoreItems:', hasMoreItems.value);
         } else {
             console.warn('Observer target not found');
         }
@@ -142,13 +181,12 @@ async function loadProducts() {
         // หลังจากโหลดข้อมูลเสร็จ ยกเลิกสถานะการโหลด
         initialLoading.value = false;
 
-        // หลังจากโหลดข้อมูลแล้ว ลองติดตั้ง observer อีกครั้ง
-        nextTick(() => {
-            if (observer) {
-                observer.disconnect();
-            }
-            setupInfiniteScroll();
-        });
+        // Setup observer เพียงครั้งเดียวหลังจากโหลดข้อมูลหน้าแรกเสร็จ
+        if (!observer) {
+            nextTick(() => {
+                setupInfiniteScroll();
+            });
+        }
     } catch (error) {
         console.error('Error loading products:', error);
         toast.add({
@@ -237,6 +275,12 @@ function debouncedSearch() {
 
 // กรองและเรียงลำดับสินค้า
 function filterProducts() {
+    // หยุดและทำความสะอาด observer เก่าก่อน
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
+
     // รีเซ็ตการเพจจิเนชั่น
     pagination.value.page = 0;
     hasMoreItems.value = true;
@@ -321,18 +365,132 @@ watch(searchQuery, () => {
 watch(
     products,
     () => {
-        nextTick(() => {
-            // ตรวจสอบและรีเซ็ต observer เมื่อข้อมูลเปลี่ยน
-            if (observerTarget.value && !initialLoading.value) {
-                if (observer) {
-                    observer.disconnect();
-                }
-                setupInfiniteScroll();
-            }
-        });
+        // ลบการ setup observer ใหม่ทุกครั้งที่ products เปลี่ยน
+        // ให้ใช้ observer เดิมแทน
+        console.log('Products updated, count:', products.value.length);
     },
     { deep: false }
 );
+
+// ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงปียางรถยนต์
+function handleTireYearChange() {
+    // บันทึกค่าลง localStorage
+    localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
+    console.log('Tire year changed to:', selectedTireYear.value);
+
+    // โหลดข้อมูลสินค้าใหม่ตามปีที่เลือก
+    filterProducts();
+}
+
+// ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงคลัง
+function handleWarehouseChange() {
+    try {
+        // บันทึกคลังที่เลือก
+        if (selectedWarehouse.value) {
+            localStorage.setItem('_selectedWarehouse', JSON.stringify(selectedWarehouse.value));
+            localStorage.setItem('_warehouseCode', selectedWarehouse.value.code);
+            localStorage.setItem('_warehouseName', selectedWarehouse.value.name);
+        } else {
+            localStorage.removeItem('_selectedWarehouse');
+            localStorage.removeItem('_warehouseCode');
+            localStorage.removeItem('_warehouseName');
+        }
+
+        // โหลดข้อมูลตะกร้าใหม่ถ้าเป็นลูกค้า
+        if (authenStore.isCustomer && authenStore.userCode && selectedWarehouse.value) {
+            cartStore.loadCartItemsForCustomer(authenStore.userCode, selectedWarehouse.value.code);
+        }
+
+        console.log('Warehouse changed to:', selectedWarehouse.value);
+
+        // แสดงข้อความยืนยัน
+        toast.add({
+            severity: 'success',
+            summary: 'เปลี่ยนคลังสำเร็จ',
+            detail: selectedWarehouse.value ? `เปลี่ยนเป็นคลัง: ${selectedWarehouse.value.name}` : 'ยกเลิกการเลือกคลัง',
+            life: 2000
+        });
+
+        // โหลดข้อมูลสินค้าใหม่
+        filterProducts();
+    } catch (error) {
+        console.error('Error changing warehouse:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'เกิดข้อผิดพลาด',
+            detail: 'ไม่สามารถเปลี่ยนคลังได้',
+            life: 3000
+        });
+    }
+}
+
+// ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงประเภทการขาย
+function handleSaleTypeChange() {
+    try {
+        // บันทึกประเภทการขาย
+        localStorage.setItem('_saleType', saleType.value.toString());
+        localStorage.setItem('_saleTypeName', saleType.value === 1 ? 'เงินสด' : 'เงินเชื่อ');
+
+        console.log('Sale type changed to:', saleType.value);
+
+        // แสดงข้อความยืนยัน
+        toast.add({
+            severity: 'success',
+            summary: 'เปลี่ยนประเภทการขายสำเร็จ',
+            detail: `เปลี่ยนเป็น: ${saleType.value === 1 ? 'เงินสด' : 'เงินเชื่อ'}`,
+            life: 2000
+        });
+
+        // โหลดข้อมูลสินค้าใหม่
+        filterProducts();
+    } catch (error) {
+        console.error('Error changing sale type:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'เกิดข้อผิดพลาด',
+            detail: 'ไม่สามารถเปลี่ยนประเภทการขายได้',
+            life: 3000
+        });
+    }
+}
+
+// ฟังก์ชันโหลดการตั้งค่าจาก localStorage
+function loadSettingsFromLocalStorage() {
+    try {
+        // โหลดข้อมูลคลังที่เลือก
+        const savedWarehouse = localStorage.getItem('_selectedWarehouse');
+        if (savedWarehouse) {
+            selectedWarehouse.value = JSON.parse(savedWarehouse);
+        }
+
+        // โหลดประเภทการขาย
+        const savedSaleType = localStorage.getItem('_saleType');
+        if (savedSaleType) {
+            saleType.value = parseInt(savedSaleType);
+        }
+    } catch (error) {
+        console.error('Error loading settings from localStorage:', error);
+    }
+}
+
+// ฟังก์ชันโหลดรายการคลัง
+async function loadWarehouses() {
+    try {
+        isLoadingWarehouses.value = true;
+        const response = await WarehouseService.getWarehouseList();
+
+        if (response && response.success && Array.isArray(response.data)) {
+            warehouseOptions.value = response.data;
+        } else {
+            warehouseOptions.value = [];
+        }
+    } catch (error) {
+        console.error('Error loading warehouses:', error);
+        warehouseOptions.value = [];
+    } finally {
+        isLoadingWarehouses.value = false;
+    }
+}
 
 function handleFavoriteChanged(data) {
     // หาสินค้าในรายการและอัพเดทสถานะ
@@ -346,6 +504,34 @@ function handleFavoriteChanged(data) {
 <template>
     <div>
         <Toast position="top-right" />
+
+        <!-- การตั้งค่าต่างๆ -->
+        <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700">
+            <!-- บรรทัดแรก: ปียางรถยนต์ และคลัง และประเภทการขาย -->
+            <div class="flex items-center gap-4 mb-2">
+                <div class="flex items-center gap-2">
+                    <label for="tire-year" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ปียางรถยนต์:</label>
+                    <Select id="tire-year" v-model="selectedTireYear" :options="tireYearOptions" optionLabel="label" optionValue="value" placeholder="เลือกปี" class="w-32" @change="handleTireYearChange" />
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="warehouse" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">คลัง:</label>
+                    <Select id="warehouse" v-model="selectedWarehouse" :options="warehouseOptions" optionLabel="name" placeholder="เลือกคลัง" class="w-60" :loading="isLoadingWarehouses" @change="handleWarehouseChange" />
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ประเภทการขาย:</label>
+                    <div class="flex gap-4">
+                        <div class="flex items-center">
+                            <RadioButton inputId="cash" v-model="saleType" :value="1" @change="handleSaleTypeChange" />
+                            <label for="cash" class="ml-2 text-sm">เงินสด</label>
+                        </div>
+                        <div class="flex items-center">
+                            <RadioButton inputId="credit" v-model="saleType" :value="2" @change="handleSaleTypeChange" />
+                            <label for="credit" class="ml-2 text-sm">เงินเชื่อ</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ช่องค้นหา -->
         <div class="px-3 py-2 sm:py-3 border-t border-gray-100 dark:border-gray-700">

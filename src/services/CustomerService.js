@@ -18,11 +18,11 @@ export default {
     getCustomers(search = '', limit = null) {
         return new Promise((resolve, reject) => {
             // แสดง URL ที่กำลังเรียก
-            console.log(`กำลังเรียก API: ${apiClient.defaults.baseURL}/service/wawashopservice/getCustomerList?search=${encodeURIComponent(search)}`);
+            console.log(`กำลังเรียก API: ${apiClient.defaults.baseURL}//getCustomerList?search=${encodeURIComponent(search)}`);
             console.log('ค่าพารามิเตอร์ search ที่ส่งไป:', search);
 
             apiClient
-                .get('service/wawashopservice/getCustomerList', {
+                .get('/getCustomerList', {
                     params: {
                         search: search
                     }
@@ -64,7 +64,7 @@ export default {
     getCustomerByCode(code) {
         return new Promise((resolve, reject) => {
             apiClient
-                .get('service/wawashopservice/getCustomerList', {
+                .get('/getCustomerList', {
                     params: {
                         code: code
                     }

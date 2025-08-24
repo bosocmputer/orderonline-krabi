@@ -11,6 +11,7 @@ import Divider from 'primevue/divider';
 import Galleria from 'primevue/galleria';
 import OverlayPanel from 'primevue/overlaypanel';
 import ProgressSpinner from 'primevue/progressspinner';
+import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
@@ -44,6 +45,19 @@ const shareOverlay = ref(null); // อ้างอิงถึง OverlayPanel �
 const authenStore = useAuthenStore();
 const isLoggedIn = computed(() => authenStore.isAuthenticated);
 
+// ข้อมูลสำหรับ Select ปียางรถยนต์
+const currentYear = new Date().getFullYear();
+const selectedTireYear = ref(currentYear);
+const tireYearOptions = ref([]);
+
+// สร้างตัวเลือกปี (ปีปัจจุบันและย้อนหลัง 5 ปี)
+for (let i = 0; i <= 5; i++) {
+    tireYearOptions.value.push({
+        label: (currentYear - i).toString(),
+        value: currentYear - i
+    });
+}
+
 // สำหรับการแชร์
 const shareItems = ref([
     {
@@ -72,16 +86,20 @@ const shareItems = ref([
 // สไลด์กาลเลอรี่ responsive options
 const galleryOptions = ref([
     {
-        breakpoint: '992px',
-        numVisible: 5
-    },
-    {
-        breakpoint: '768px',
+        breakpoint: '1024px',
         numVisible: 4
     },
     {
-        breakpoint: '576px',
+        breakpoint: '768px',
         numVisible: 3
+    },
+    {
+        breakpoint: '576px',
+        numVisible: 2
+    },
+    {
+        breakpoint: '480px',
+        numVisible: 2
     }
 ]);
 
@@ -152,48 +170,103 @@ const currentUnit = computed(() => {
     return unit;
 });
 
-// ตรวจสอบเมื่อ Dialog เปิดและมี itemCode
-watch(
-    () => props.visible,
-    (newValue) => {
-        if (newValue && props.itemCode) {
-            // รีเซ็ตค่าต่างๆ เมื่อเปิด Dialog ใหม่
-            product.value = null;
-            images.value = [];
-            quantity.value = '1';
-            selectedUnitIndex.value = 0;
-            loading.value = true;
+// ตรวจสอบเมื่อ Dialog เปิดและมี itemCode หรือเมื่อ itemCode เปลี่ยน
+watch([() => props.visible, () => props.itemCode], ([newVisible, newItemCode], [oldVisible, oldItemCode]) => {
+    // เรียก fetchProductDetail เฉพาะเมื่อ:
+    // 1. Dialog เปิดใหม่และมี itemCode
+    // 2. Dialog เปิดอยู่แล้วแต่ itemCode เปลี่ยน
+    if (
+        newVisible &&
+        newItemCode &&
+        ((!oldVisible && newVisible) || // Dialog เปิดใหม่
+            (newVisible && newItemCode !== oldItemCode)) // itemCode เปลี่ยน
+    ) {
+        console.log('Fetching product detail for:', newItemCode);
+        // รีเซ็ตค่าต่างๆ เมื่อโหลดข้อมูลใหม่
+        product.value = null;
+        images.value = [];
+        quantity.value = '1';
+        selectedUnitIndex.value = 0;
+        loading.value = true;
 
-            // โหลดข้อมูลสินค้า
-            fetchProductDetail();
-        }
-    }
-);
-
-// ตรวจสอบเมื่อ itemCode เปลี่ยน (กรณีเปิด Dialog แล้วเปลี่ยนสินค้า)
-watch(
-    () => props.itemCode,
-    (newValue) => {
-        if (props.visible && newValue) {
-            // รีเซ็ตค่าต่างๆ เมื่อเปลี่ยนสินค้า
-            product.value = null;
-            images.value = [];
-            quantity.value = '1';
-            selectedUnitIndex.value = 0;
-            loading.value = true;
-
-            // โหลดข้อมูลสินค้าใหม่
-            fetchProductDetail();
-        }
-    }
-);
-
-onMounted(() => {
-    // หากมี itemCode และ visible = true ตั้งแต่เริ่มต้น ให้โหลดข้อมูล
-    if (props.visible && props.itemCode) {
+        // โหลดข้อมูลสินค้า
         fetchProductDetail();
     }
 });
+
+onMounted(() => {
+    // โหลดค่าปียางรถยนต์จาก localStorage (ถ้ามี)
+    const savedTireYear = localStorage.getItem('_shelf_code');
+    if (savedTireYear) {
+        selectedTireYear.value = parseInt(savedTireYear);
+    } else {
+        // ถ้าไม่มี ให้บันทึกปีปัจจุบันลง localStorage
+        localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
+    }
+
+    // หากมี itemCode และ visible = true ตั้งแต่เริ่มต้น ให้โหลดข้อมูล
+    if (props.visible && props.itemCode) {
+        console.log('Initial fetch on mount for:', props.itemCode);
+        fetchProductDetail();
+    }
+});
+
+// ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงปียางรถยนต์
+function handleTireYearChange() {
+    // บันทึกค่าลง localStorage
+    localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
+    console.log('Tire year changed to:', selectedTireYear.value);
+
+    // อัปเดตข้อมูลสินค้าตามปีใหม่
+    if (product.value && product.value.code) {
+        updateProductData();
+    }
+}
+
+// ฟังก์ชันสำหรับอัปเดตข้อมูลสินค้า (ราคาและจำนวนคงเหลือ)
+async function updateProductData() {
+    if (!product.value || !product.value.code) return;
+
+    try {
+        const result = await ProductService.getProductByItemCode(product.value.code);
+
+        if (result.data) {
+            // อัปเดตเฉพาะข้อมูลที่จำเป็น
+            const newData = result.data;
+
+            // อัปเดตข้อมูลหลัก
+            product.value.price = newData.price;
+            product.value.balance_qty = newData.balance_qty;
+            product.value.sum_sale = newData.sum_sale;
+            product.value.sold_out = newData.sold_out;
+
+            // ตรวจสอบ sold_out ตาม balance_qty
+            if (product.value.balance_qty === '0' || parseFloat(product.value.balance_qty) === 0) {
+                product.value.sold_out = '1';
+            }
+
+            // อัปเดตข้อมูลหน่วยอื่นๆ ถ้ามี
+            if (newData.otherUnits && newData.otherUnits.length > 0) {
+                product.value.otherUnits = newData.otherUnits.map((unit) => {
+                    if (unit.balance_qty === '0' || parseFloat(unit.balance_qty) === 0) {
+                        unit.sold_out = '1';
+                    }
+                    return unit;
+                });
+            }
+
+            console.log('Product data updated for tire year:', selectedTireYear.value);
+        }
+    } catch (error) {
+        console.error('Error updating product data:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'เกิดข้อผิดพลาด',
+            detail: 'ไม่สามารถอัปเดตข้อมูลสินค้าได้',
+            life: 3000
+        });
+    }
+}
 
 function goToLogin() {
     emit('update:visible', false);
@@ -218,7 +291,9 @@ async function fetchProductDetail() {
             detail: 'ไม่พบรหัสสินค้า',
             life: 3000
         });
-        emit('update:visible', false);
+        // ไม่ปิด dialog แต่ให้แสดงข้อความไม่พบข้อมูล
+        product.value = null;
+        loading.value = false;
         return;
     }
 
@@ -245,21 +320,8 @@ async function fetchProductDetail() {
 
         product.value = result.data;
 
-        // สร้างรูปภาพสำหรับแกลลอรี่
-        const mainImage = {
-            itemImageSrc: product.value.image,
-            thumbnailImageSrc: product.value.image,
-            alt: product.value.name
-        };
-
-        // ถ้ามีหลายหน่วย ให้สร้างรูปภาพเดียวกันหลายๆ รูป
-        images.value = [mainImage];
-
-        // จำลองรูปภาพเพิ่มเติม (เพื่อให้แกลลอรี่ดูดีขึ้น)
-        if (product.value.otherUnits && product.value.otherUnits.length > 0) {
-            // เพิ่มรูปภาพเดียวกันอีก 1-2 รูป เพื่อให้แกลลอรี่ดูดีขึ้น
-            images.value.push(mainImage);
-        }
+        // ดึงรายการรูปภาพสำหรับแกลลอรี่
+        await fetchProductImages();
     } catch (error) {
         console.error('Error fetching product detail:', error);
         toast.add({
@@ -268,9 +330,59 @@ async function fetchProductDetail() {
             detail: 'ไม่สามารถโหลดข้อมูลสินค้าได้',
             life: 3000
         });
-        emit('update:visible', false);
+        // ไม่ปิด dialog แต่ให้แสดงข้อความไม่พบข้อมูล
+        product.value = null;
     } finally {
         loading.value = false;
+    }
+}
+
+// ดึงรายการรูปภาพของสินค้า
+async function fetchProductImages() {
+    if (!product.value || !product.value.code) {
+        // ถ้าไม่มี product หรือ code ให้ใช้รูปภาพสำรอง
+        images.value = [
+            {
+                itemImageSrc: ProductService.getPlaceholderImage(),
+                thumbnailImageSrc: ProductService.getPlaceholderImage(),
+                alt: product.value ? product.value.name : 'สินค้า'
+            }
+        ];
+        return;
+    }
+
+    try {
+        // ดึงรายการรูปภาพจาก API
+        const imageList = await ProductService.getImageList(product.value.code);
+
+        if (imageList && imageList.length > 0) {
+            // แปลง guid_code เป็น URL รูปภาพ
+            images.value = imageList.map((imageData) => ({
+                itemImageSrc: ProductService.getProductImageByGuid(imageData.guid_code),
+                thumbnailImageSrc: ProductService.getProductImageByGuid(imageData.guid_code),
+                alt: product.value.name,
+                guid_code: imageData.guid_code
+            }));
+        } else {
+            // ถ้าไม่มีรูปภาพ ให้ใช้รูปภาพสำรอง
+            images.value = [
+                {
+                    itemImageSrc: ProductService.getPlaceholderImage(),
+                    thumbnailImageSrc: ProductService.getPlaceholderImage(),
+                    alt: product.value.name
+                }
+            ];
+        }
+    } catch (error) {
+        console.error('Error fetching product images:', error);
+        // กรณีเกิดข้อผิดพลาด ให้ใช้รูปภาพสำรอง
+        images.value = [
+            {
+                itemImageSrc: ProductService.getPlaceholderImage(),
+                thumbnailImageSrc: ProductService.getPlaceholderImage(),
+                alt: product.value.name
+            }
+        ];
     }
 }
 
@@ -591,18 +703,32 @@ const dialogVisible = computed({
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Product gallery -->
                 <div class="relative pt-2">
-                    <Galleria v-if="images.length > 0" :value="images" :numVisible="5" :circular="true" :showThumbnails="false" :showItemNavigators="false" :responsiveOptions="galleryOptions" containerClass="w-full">
+                    <Galleria
+                        v-if="images.length > 0"
+                        :value="images"
+                        :numVisible="4"
+                        :circular="true"
+                        :showThumbnails="images.length > 1"
+                        :showItemNavigators="images.length > 1"
+                        :responsiveOptions="galleryOptions"
+                        :thumbnailsPosition="images.length <= 4 ? 'bottom' : 'bottom'"
+                        containerClass="w-full galleria-custom"
+                    >
                         <template #item="slotProps">
-                            <img :src="slotProps.item.itemImageSrc" :alt="slotProps.item.alt" @error="$event.target.src = product.imageFallback" class="w-full object-contain" style="max-height: 300px; height: 300px" />
+                            <div class="flex justify-center items-center bg-gray-50 dark:bg-gray-800 rounded-lg" style="height: 320px">
+                                <img :src="slotProps.item.itemImageSrc" :alt="slotProps.item.alt" @error="$event.target.src = ProductService.getPlaceholderImage()" class="max-w-full max-h-full object-contain rounded-lg" style="max-height: 300px" />
+                            </div>
                         </template>
                         <template #thumbnail="slotProps">
-                            <img :src="slotProps.item.thumbnailImageSrc" :alt="slotProps.item.alt" @error="$event.target.src = product.imageFallback" class="rounded-sm object-contain" style="width: 70px; height: 40px" />
+                            <div class="thumbnail-wrapper">
+                                <img :src="slotProps.item.thumbnailImageSrc" :alt="slotProps.item.alt" @error="$event.target.src = ProductService.getPlaceholderImage()" class="thumbnail-image" />
+                            </div>
                         </template>
                     </Galleria>
 
                     <!-- ถ้าไม่มีรูปภาพ ให้แสดงรูปภาพสำรอง -->
                     <div v-else class="w-full h-[300px] flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                        <img :src="product.imageFallback" :alt="product.name" class="max-h-[250px] max-w-full object-contain" />
+                        <img :src="ProductService.getPlaceholderImage()" :alt="product ? product.name : 'สินค้า'" class="max-h-[250px] max-w-full object-contain" />
                     </div>
 
                     <!-- Tags positioned on the gallery -->
@@ -614,8 +740,16 @@ const dialogVisible = computed({
                 <!-- Product info -->
                 <div class="product-info">
                     <div class="mb-3">
-                        <div class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
-                            รหัสสินค้า: <span class="font-medium">{{ product.code }}</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                            <div class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
+                                รหัสสินค้า: <span class="font-medium">{{ product.code }}</span>
+                            </div>
+
+                            <!-- เลือกปียาง -->
+                            <div class="flex items-center gap-2">
+                                <!-- <label for="tire-year" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ปียางรถยนต์:</label> -->
+                                <Select id="tire-year" v-model="selectedTireYear" :options="tireYearOptions" optionLabel="label" optionValue="value" placeholder="เลือกปี" class="w-32" @change="handleTireYearChange" />
+                            </div>
                         </div>
                     </div>
 
@@ -642,7 +776,7 @@ const dialogVisible = computed({
                     <div class="flex items-center mb-4 mt-3" v-if="currentUnit">
                         <!-- แสดงราคาเฉพาะเมื่อเข้าสู่ระบบแล้วเท่านั้น -->
                         <template v-if="isLoggedIn">
-                            <span class="text-2xl sm:text-3xl font-bold text-primary"> ฿{{ parseFloat(currentUnit.price).toLocaleString() }} </span>
+                            <span class="text-2xl sm:text-3xl font-bold text-primary"> ฿{{ parseFloat(currentUnit.price == '' ? 0 : currentUnit.price).toLocaleString() }} </span>
                             <span class="text-base text-gray-500 ml-2"> / {{ currentUnit.unit_code }} </span>
                         </template>
 
@@ -716,8 +850,13 @@ const dialogVisible = computed({
             </div>
         </div>
 
-        <div v-else-if="!loading" class="p-4 text-center">
-            <div class="text-gray-500">ไม่พบข้อมูลสินค้า</div>
+        <div v-else-if="!loading" class="p-6 text-center">
+            <div class="flex flex-col items-center justify-center" style="min-height: 300px">
+                <i class="pi pi-exclamation-triangle text-6xl text-gray-400 dark:text-gray-600 mb-4"></i>
+                <h3 class="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">ไม่พบข้อมูลสินค้า</h3>
+                <p class="text-gray-500 dark:text-gray-400 mb-4">ขออภัย ไม่สามารถโหลดข้อมูลสินค้าได้ในขณะนี้</p>
+                <Button label="ปิด" icon="pi pi-times" outlined @click="closeDialog" />
+            </div>
         </div>
     </Dialog>
 </template>
@@ -738,22 +877,101 @@ const dialogVisible = computed({
 }
 
 :deep(.p-galleria-thumbnail-container) {
-    background-color: rgba(0, 0, 0, 0.03);
-    padding: 0.5rem 0;
-}
-
-:deep(.p-galleria-thumbnail-item-active) {
-    border: 2px solid var(--primary-color) !important;
+    background-color: transparent;
+    padding: 0.75rem 0 0 0;
 }
 
 :deep(.p-galleria-thumbnail-item) {
     opacity: 0.7;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
+    margin: 0 0.25rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid transparent;
 }
 
-:deep(.p-galleria-thumbnail-item:hover),
+:deep(.p-galleria-thumbnail-item:hover) {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 :deep(.p-galleria-thumbnail-item-active) {
-    opacity: 1;
+    opacity: 1 !important;
+    border: 2px solid var(--primary-color) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.p-galleria-item-nav) {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    margin: 0 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+:deep(.p-galleria-item-nav:hover) {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+:deep(.p-galleria-item-nav .p-galleria-item-nav-icon) {
+    font-size: 1rem;
+    color: #666;
+}
+
+.thumbnail-wrapper {
+    width: 80px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.thumbnail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+}
+
+.galleria-custom :deep(.p-galleria-thumbnail-item:hover) .thumbnail-wrapper {
+    background: #e9ecef;
+}
+
+.galleria-custom :deep(.p-galleria-thumbnail-item:hover) .thumbnail-image {
+    transform: scale(1.05);
+}
+
+/* Responsive thumbnail sizes */
+@media (max-width: 768px) {
+    .thumbnail-wrapper {
+        width: 60px;
+        height: 45px;
+    }
+
+    :deep(.p-galleria-thumbnail-item) {
+        margin: 0 0.125rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .thumbnail-wrapper {
+        width: 50px;
+        height: 38px;
+    }
+
+    :deep(.p-galleria-thumbnail-container) {
+        padding: 0.5rem 0 0 0;
+    }
 }
 
 .overflow-x-auto::-webkit-scrollbar {

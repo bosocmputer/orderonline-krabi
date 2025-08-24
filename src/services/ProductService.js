@@ -25,7 +25,7 @@ export default {
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
             apiClient
-                .get('service/wawashopservice/getProductList', {
+                .get('/getProductList', {
                     params: {
                         cust_code: custCode || '',
                         search: search,
@@ -80,14 +80,20 @@ export default {
      */
     getProductByItemCode(itemCode) {
         const custCode = localStorage.getItem('_userCode') || '';
+        const whCode = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+        const shelfCode = localStorage.getItem('_shelf_code');
+        const saleType = localStorage.getItem('_saleType') || '1';
 
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API
             apiClient
-                .get('service/wawashopservice/getProductDetail', {
+                .get('/getProductDetail', {
                     params: {
                         cust_code: custCode || '',
-                        item_code: itemCode
+                        item_code: itemCode,
+                        wh_code: whCode || '',
+                        shelf_code: shelfCode || '',
+                        sale_type: saleType
                     }
                 })
                 .then((response) => {
@@ -137,7 +143,7 @@ export default {
         // ใช้ endpoint สำหรับดึงรูปภาพสินค้า
         const baseUrl = import.meta.env.VITE_APP_API.endsWith('/') ? import.meta.env.VITE_APP_API.slice(0, -1) : import.meta.env.VITE_APP_API;
 
-        return `${baseUrl}/service/wawashopservice/images?item_code=${itemCode}`;
+        return `${baseUrl}/images?item_code=${itemCode}`;
     },
 
     /**
@@ -164,7 +170,7 @@ export default {
 
         return new Promise((resolve, reject) => {
             apiClient
-                .get('service/wawashopservice/setfav', {
+                .get('/setfav', {
                     params: {
                         status: status === '1' ? 1 : 0,
                         cust_code: custCode,
@@ -186,12 +192,56 @@ export default {
     },
 
     getProductBalancePrice(custCode, itemCode, unitCode) {
-        return apiClient.get('service/wawashopservice/getProductBalancePrice', {
+        const whCode = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+        const shelfCode = localStorage.getItem('_shelf_code');
+        const saleType = localStorage.getItem('_saleType');
+        return apiClient.get('/getProductBalancePrice', {
             params: {
                 cust_code: custCode,
                 item_code: itemCode,
-                unit_code: unitCode
+                unit_code: unitCode,
+                wh_code: whCode,
+                shelf_code: shelfCode,
+                sale_type: saleType
             }
         });
+    },
+
+    /**
+     * ดึงรายการรูปภาพของสินค้าจาก API
+     * @param {string} itemCode - รหัสสินค้า
+     * @returns {Promise} รายการรูปภาพที่มี guid_code
+     */
+    getImageList(itemCode) {
+        return new Promise((resolve, reject) => {
+            apiClient
+                .get('/getImageList', {
+                    params: {
+                        item_code: itemCode
+                    }
+                })
+                .then((response) => {
+                    if (response.data && response.data.success && Array.isArray(response.data.data)) {
+                        resolve(response.data.data);
+                    } else {
+                        console.error('รูปแบบข้อมูล API ไม่ถูกต้อง:', response.data);
+                        reject(new Error('รูปแบบข้อมูลไม่ถูกต้อง'));
+                    }
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API getImageList:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    /**
+     * สร้าง URL รูปภาพสินค้าจาก guid_code
+     * @param {string} guidCode - GUID code ของรูปภาพ
+     * @returns {string} URL รูปภาพสินค้า
+     */
+    getProductImageByGuid(guidCode) {
+        const baseUrl = import.meta.env.VITE_APP_API.endsWith('/') ? import.meta.env.VITE_APP_API.slice(0, -1) : import.meta.env.VITE_APP_API;
+        return `${baseUrl}/imagesguid?guid_code=${guidCode}`;
     }
 };
