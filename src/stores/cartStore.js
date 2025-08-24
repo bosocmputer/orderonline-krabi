@@ -484,6 +484,7 @@ export const useCartStore = defineStore('cart', () => {
                 address: checkoutData.address || '',
                 address_name: checkoutData.address_name || '',
                 wh_code: whCode,
+                branch_code: whCode,
                 sale_type: saleType
             };
 

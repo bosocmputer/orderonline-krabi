@@ -386,7 +386,7 @@ function handleQuantityKeydown(event) {
                                     {{ item.item_code }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                                 </div>
                                 <div class="text-base sm:text-lg font-medium hover:text-primary cursor-pointer" @click="router.push(`/products/${item.id}`)">
-                                    {{ item.item_name }}
+                                    {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                                 </div>
                                 <div v-if="item.category" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
                                     {{ item.category }}

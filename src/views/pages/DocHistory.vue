@@ -612,7 +612,9 @@ onMounted(fetchDocuments);
                                 <div v-for="(item, index) in selectedDocDetails" :key="index" class="p-3">
                                     <div class="grid grid-cols-12 gap-2 items-center">
                                         <div class="col-span-5">
-                                            <div class="font-medium text-primary-600 dark:text-primary-400">{{ item.item_name }}</div>
+                                            <div class="font-medium text-primary-600 dark:text-primary-400">
+                                                {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                            </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400">รหัส: {{ item.item_code }}</div>
                                         </div>
                                         <div class="col-span-2">{{ item.unit_code }}</div>
@@ -628,7 +630,9 @@ onMounted(fetchDocuments);
                         <div v-else class="document-items-cards">
                             <div v-for="(item, index) in selectedDocDetails" :key="index" class="mb-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                                 <div class="flex justify-between items-start mb-2">
-                                    <div class="font-medium text-primary-600 dark:text-primary-400">{{ item.item_name }}</div>
+                                    <div class="font-medium text-primary-600 dark:text-primary-400">
+                                        {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                    </div>
                                     <div class="font-semibold">฿{{ formatCurrency(item.sum_amount) }}</div>
                                 </div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">รหัส: {{ item.item_code }}</div>

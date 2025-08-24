@@ -595,7 +595,9 @@ function getTaxType(itemCode) {
 
                     <!-- Details -->
                     <div class="flex-grow">
-                        <div class="font-medium">{{ item.item_name }}</div>
+                        <div class="font-medium">
+                            {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                        </div>
                         <div class="text-sm text-gray-500">{{ item.item_code }}</div>
                     </div>
 

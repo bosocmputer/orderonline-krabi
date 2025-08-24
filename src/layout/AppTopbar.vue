@@ -303,7 +303,9 @@ function handleImageError(event) {
                                         <img :src="getProductImage(item.item_code)" :alt="item.item_code" class="w-full h-full object-contain cursor-pointer" @error="handleImageError" />
                                     </div>
                                     <div class="flex-1">
-                                        <div class="text-sm font-medium mb-1 truncate max-w-[180px]">{{ item.item_name }}</div>
+                                        <div class="text-sm font-medium mb-1 truncate max-w-[180px]">
+                                            {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                        </div>
                                         <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.qty }} x ฿{{ formatTotal(item.price) }}</div>
                                     </div>
 

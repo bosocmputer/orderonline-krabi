@@ -1053,7 +1053,9 @@ onMounted(fetchOrderHistory);
                                 <div class="divide-y divide-gray-200 dark:divide-gray-700">
                                     <div v-for="(item, index) in selectedOrderDetails" :key="index" class="grid grid-cols-12 p-3 hover:bg-gray-50 dark:hover:bg-gray-800">
                                         <div class="col-span-5">
-                                            <div class="font-medium text-primary-600 dark:text-primary-400">{{ item.item_name }}</div>
+                                            <div class="font-medium text-primary-600 dark:text-primary-400">
+                                                {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                            </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400">รหัส: {{ item.item_code }}</div>
                                         </div>
                                         <div class="col-span-2 text-center self-center">{{ item.unit_code }}</div>
@@ -1069,7 +1071,9 @@ onMounted(fetchOrderHistory);
                         <div v-else class="order-items-cards">
                             <div v-for="(item, index) in selectedOrderDetails" :key="index" class="mb-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                                 <div class="flex justify-between items-start mb-2">
-                                    <div class="font-medium text-primary-600 dark:text-primary-400">{{ item.item_name }}</div>
+                                    <div class="font-medium text-primary-600 dark:text-primary-400">
+                                        {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                    </div>
                                     <div class="font-semibold">฿{{ formatCurrency(parseFloat(item.qty) * parseFloat(item.price)) }}</div>
                                 </div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">รหัส: {{ item.item_code }}</div>
