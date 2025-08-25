@@ -429,7 +429,7 @@ function copyLink() {
 
     // สร้าง URL ที่มีพารามิเตอร์ของสินค้า
     const baseUrl = window.location.origin;
-    const productPath = `/app/product-detail/${product.value.code}`;
+    const productPath = `/product-detail/${product.value.code}`;
     const fullUrl = baseUrl + productPath;
 
     navigator.clipboard
