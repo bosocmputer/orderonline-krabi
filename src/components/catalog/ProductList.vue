@@ -347,7 +347,7 @@ function toggleFavorite(product, event) {
 
 // ติดตามการเปลี่ยนแปลงของตัวกรอง
 watch(
-    [() => props.selectedCategory, () => route.query.favorite],
+    [() => props.selectedCategory, () => route.query.favorite, () => route.query.timestamp],
     () => {
         // อัปเดตสถานะ favoriteFilterActive จาก query parameters
         favoriteFilterActive.value = route.query.favorite === '1';
@@ -509,10 +509,10 @@ function handleFavoriteChanged(data) {
         <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700">
             <!-- บรรทัดแรก: ปียางรถยนต์ และคลัง และประเภทการขาย -->
             <div class="flex items-center gap-4 mb-2">
-                <div class="flex items-center gap-2">
+                <!-- <div class="flex items-center gap-2">
                     <label for="tire-year" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ปียางรถยนต์:</label>
                     <Select id="tire-year" v-model="selectedTireYear" :options="tireYearOptions" optionLabel="label" optionValue="value" placeholder="เลือกปี" class="w-32" @change="handleTireYearChange" />
-                </div>
+                </div> -->
                 <div class="flex items-center gap-2">
                     <label for="warehouse" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">คลัง:</label>
                     <Select id="warehouse" v-model="selectedWarehouse" :options="warehouseOptions" optionLabel="name" placeholder="เลือกคลัง" class="w-60" :loading="isLoadingWarehouses" @change="handleWarehouseChange" />

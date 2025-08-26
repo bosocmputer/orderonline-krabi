@@ -20,6 +20,9 @@ export default {
         const offset = page * perPage;
 
         const custCode = localStorage.getItem('_userCode') || '';
+        const instockValue = localStorage.getItem('_isstock');
+        // แปลงค่า _isstock: null หรือ '0' = 0 (แสดงทั้งหมด), '1' = 1 (แสดงเฉพาะที่มีคงเหลือ)
+        const instock = instockValue === '1' ? 1 : 0;
 
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
@@ -32,7 +35,8 @@ export default {
                         offset: offset,
                         premium: 1,
                         limit: limit,
-                        favorite: 0
+                        favorite: 0,
+                        isstock: instock
                     }
                 })
                 .then((response) => {

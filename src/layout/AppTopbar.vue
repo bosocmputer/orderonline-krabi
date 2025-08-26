@@ -2,6 +2,7 @@
 import { useLayout } from '@/layout/composables/layout';
 import ProductService from '@/services/ProductService';
 import { useCartStore } from '@/stores/cartStore';
+import ToggleSwitch from 'primevue/toggleswitch';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -19,6 +20,9 @@ const isCartPage = computed(() => {
 
 // เพิ่มตัวแปรสำหรับสถานะการค้นหารายการโปรด
 const favoriteFilterActive = ref(false);
+
+// เพิ่มตัวแปรสำหรับสถานะการแสดงสินค้าที่มียอดคงเหลือ
+const instockFilterActive = ref(false);
 
 // ตรวจสอบการล็อกอิน
 const isAuthenticated = computed(() => {
@@ -193,6 +197,16 @@ onMounted(() => {
     // ตรวจสอบการเปลี่ยนแปลงของ localStorage
     window.addEventListener('storage', checkAuthStatus);
 
+    // โหลดค่าเริ่มต้นของการกรองสินค้าที่มียอดคงเหลือจาก localStorage
+    const savedInstockFilter = localStorage.getItem('_isstock');
+    // ถ้าค่าใน localStorage เป็น '1' แสดงว่าต้องการแสดงเฉพาะที่มีคงเหลือ (ToggleSwitch = true)
+    instockFilterActive.value = savedInstockFilter === '1';
+
+    // ถ้ายังไม่มีค่าใน localStorage ให้เซ็ตค่าเริ่มต้นเป็น '0' (แสดงทั้งหมด)
+    if (savedInstockFilter === null) {
+        localStorage.setItem('_isstock', '0');
+    }
+
     // เพิ่ม watcher สำหรับตรวจสอบพารามิเตอร์ favorite ในเส้นทาง
     watch(
         () => router.currentRoute.value.query,
@@ -212,6 +226,21 @@ onMounted(() => {
             }
         }
     );
+
+    // เพิ่ม watcher สำหรับติดตามการเปลี่ยนแปลงของ instockFilterActive
+    watch(instockFilterActive, (newValue) => {
+        // อัปเดต localStorage
+        localStorage.setItem('_isstock', newValue ? '1' : '0');
+
+        // รีเฟรชข้อมูลสินค้า
+        router.push({
+            path: '/',
+            query: {
+                ...router.currentRoute.value.query,
+                timestamp: Date.now()
+            }
+        });
+    });
 });
 
 // ลบ event listener เมื่อคอมโพเนนต์ถูกทำลาย
@@ -250,6 +279,12 @@ function handleImageError(event) {
         </div>
 
         <div class="layout-topbar-actions" :class="isAuthenticated ? 'mt-3' : ''">
+            <!-- แสดงสินค้าเฉพาะสินค้าที่มียอดคงเหลือ - ย้ายออกจาก layout-config-menu -->
+            <div v-if="isAuthenticated" class="flex items-center justify-center gap-3 px-4 py-2 dark:bg-gray-700 rounded-lg">
+                <label class="text-sm cursor-pointer whitespace-nowrap" @click="instockFilterActive = !instockFilterActive"> เฉพาะสินค้าที่มีคงเหลือ </label>
+                <ToggleSwitch v-model="instockFilterActive" />
+            </div>
+
             <div class="layout-config-menu">
                 <!-- เพิ่มปุ่มค้นหารายการโปรด - แสดงเฉพาะเมื่อล็อกอินแล้ว -->
                 <button v-if="isAuthenticated" type="button" class="layout-topbar-action flex items-center justify-center" @click="searchFavoriteItems" :class="{ 'favorite-active': favoriteFilterActive }">
@@ -304,7 +339,7 @@ function handleImageError(event) {
                                     </div>
                                     <div class="flex-1">
                                         <div class="text-sm font-medium mb-1 truncate max-w-[180px]">
-                                            {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
+                                            {{ item.item_name }}
                                         </div>
                                         <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.qty }} x ฿{{ formatTotal(item.price) }}</div>
                                     </div>

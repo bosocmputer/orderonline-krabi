@@ -49,6 +49,7 @@ import TabView from 'primevue/tabview';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import Toast from 'primevue/toast';
+import ToggleSwitch from 'primevue/toggleswitch';
 import Tooltip from 'primevue/tooltip';
 
 import './assets/styles.scss';
@@ -109,6 +110,7 @@ app.component('Textarea', Textarea);
 app.component('Select', Select);
 app.component('Steps', Steps);
 app.component('SpeedDial', SpeedDial);
+app.component('ToggleSwitch', ToggleSwitch);
 
 // Register directives
 app.directive('styleclass', StyleClass);

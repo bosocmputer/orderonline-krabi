@@ -21,6 +21,9 @@ export default {
         const search = filters.search || '';
         const custCode = localStorage.getItem('_userCode') || '';
         const favorite = filters.favorite !== undefined ? filters.favorite : 0;
+        const instockValue = localStorage.getItem('_isstock');
+        // แปลงค่า _isstock: null หรือ '0' = 0 (แสดงทั้งหมด), '1' = 1 (แสดงเฉพาะที่มีคงเหลือ)
+        const instock = instockValue === '1' ? 1 : 0;
 
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
@@ -33,7 +36,8 @@ export default {
                         offset: offset,
                         premium: 0, // สินค้าทั่วไป
                         limit: 50,
-                        favorite: favorite
+                        favorite: favorite,
+                        isstock: instock
                     }
                 })
                 .then((response) => {
