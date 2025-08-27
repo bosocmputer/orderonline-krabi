@@ -195,14 +195,10 @@ watch([() => props.visible, () => props.itemCode], ([newVisible, newItemCode], [
 });
 
 onMounted(() => {
-    // โหลดค่าปียางรถยนต์จาก localStorage (ถ้ามี)
-    const savedTireYear = localStorage.getItem('_shelf_code');
-    if (savedTireYear) {
-        selectedTireYear.value = parseInt(savedTireYear);
-    } else {
-        // ถ้าไม่มี ให้บันทึกปีปัจจุบันลง localStorage
-        localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
-    }
+    // ใช้ปีปัจจุบันเสมอ ไม่โหลดจาก localStorage
+    selectedTireYear.value = currentYear;
+    // บันทึกปีปัจจุบันลง localStorage
+    localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
 
     // หากมี itemCode และ visible = true ตั้งแต่เริ่มต้น ให้โหลดข้อมูล
     if (props.visible && props.itemCode) {

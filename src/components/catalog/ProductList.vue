@@ -373,14 +373,14 @@ watch(
 );
 
 // ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงปียางรถยนต์
-function handleTireYearChange() {
-    // บันทึกค่าลง localStorage
-    localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
-    console.log('Tire year changed to:', selectedTireYear.value);
+// function handleTireYearChange() {
+//     // บันทึกค่าลง localStorage
+//     localStorage.setItem('_shelf_code', selectedTireYear.value.toString());
+//     console.log('Tire year changed to:', selectedTireYear.value);
 
-    // โหลดข้อมูลสินค้าใหม่ตามปีที่เลือก
-    filterProducts();
-}
+//     // โหลดข้อมูลสินค้าใหม่ตามปีที่เลือก
+//     filterProducts();
+// }
 
 // ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงคลัง
 function handleWarehouseChange() {
