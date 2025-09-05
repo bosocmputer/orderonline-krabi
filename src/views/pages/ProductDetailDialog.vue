@@ -26,6 +26,10 @@ const props = defineProps({
     itemCode: {
         type: String,
         default: ''
+    },
+    groupMain: {
+        type: String,
+        default: ''
     }
 });
 
@@ -644,6 +648,17 @@ const dialogVisible = computed({
     get: () => props.visible,
     set: (value) => emit('update:visible', value)
 });
+
+// ตรวจสอบว่าควรแสดงส่วนเลือกปียางหรือไม่ ตาม group_main
+const shouldShowTireYearSelector = computed(() => {
+    // ใช้ group_main จาก props เป็นหลัก ถ้าไม่มีให้ดูจาก product.value
+    const groupMain = props.groupMain || (product.value && product.value.group_main);
+
+    if (!groupMain) return true;
+
+    // ถ้าเป็น group_main G001 หรือ G003 (ยาง) ไม่ต้องแสดง
+    return groupMain !== 'G001' && groupMain !== 'G003';
+});
 </script>
 
 <template>
@@ -742,7 +757,7 @@ const dialogVisible = computed({
                             </div>
 
                             <!-- เลือกปียาง -->
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2" v-if="shouldShowTireYearSelector">
                                 <!-- <label for="tire-year" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ปียางรถยนต์:</label> -->
                                 <Select id="tire-year" v-model="selectedTireYear" :options="tireYearOptions" optionLabel="label" optionValue="value" placeholder="เลือกปี" class="w-32" @change="handleTireYearChange" />
                             </div>
@@ -880,7 +895,7 @@ const dialogVisible = computed({
 :deep(.p-galleria-thumbnail-item) {
     opacity: 0.7;
     transition: all 0.3s ease;
-    margin: 0 0.25rem;
+    margin: 0.25rem;
     border-radius: 8px;
     overflow: hidden;
     border: 2px solid transparent;
@@ -945,6 +960,10 @@ const dialogVisible = computed({
 
 .galleria-custom :deep(.p-galleria-thumbnail-item:hover) .thumbnail-image {
     transform: scale(1.05);
+}
+
+.p-galleria-thumbnail-items {
+    padding-top: 1px;
 }
 
 /* Responsive thumbnail sizes */

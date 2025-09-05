@@ -34,6 +34,7 @@ const toast = useToast();
 
 // ข้อมูลสำหรับ Dialog
 const selectedProductCode = ref('');
+const selectedProductGroupMain = ref('');
 const showProductDetail = ref(false);
 
 // ข้อมูลสินค้าและการค้นหา
@@ -298,6 +299,7 @@ function clearSearch() {
 // เปิด Dialog แสดงรายละเอียดสินค้า
 function viewProductDetail(product) {
     selectedProductCode.value = product.item_code;
+    selectedProductGroupMain.value = product.group_main || '';
     showProductDetail.value = true;
 }
 
@@ -499,6 +501,17 @@ function handleFavoriteChanged(data) {
         productToUpdate.favorite_item = data.isFavorite ? '1' : '0';
     }
 }
+
+// ตรวจสอบว่าควรแสดงส่วนเลือกปียางหรือไม่
+const shouldShowTireYearSelector = computed(() => {
+    // ถ้าไม่มีสินค้าในรายการ หรือมีสินค้าที่ไม่ใช่ group_main G001 หรือ G003 ให้แสดง
+    if (!products.value || products.value.length === 0) return true;
+
+    // ตรวจสอบว่าสินค้าในหน้าปัจจุบันมี group_main ที่ไม่ใช่ G001 หรือ G003 หรือไม่
+    const hasNonTireProducts = products.value.some((product) => product.group_main && product.group_main !== 'G001' && product.group_main !== 'G003');
+
+    return hasNonTireProducts;
+});
 </script>
 
 <template>
@@ -506,7 +519,7 @@ function handleFavoriteChanged(data) {
         <Toast position="top-right" />
 
         <!-- การตั้งค่าต่างๆ -->
-        <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700">
+        <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700" v-if="shouldShowTireYearSelector">
             <!-- บรรทัดแรก: ปียางรถยนต์ และคลัง และประเภทการขาย -->
             <div class="flex items-center gap-4 mb-2">
                 <!-- <div class="flex items-center gap-2">
@@ -650,7 +663,7 @@ function handleFavoriteChanged(data) {
         <Button v-show="showScrollTop" icon="pi pi-arrow-up" class="back-to-top-btn" @click="scrollToTop" aria-label="Back to top" />
 
         <!-- Product Detail Dialog -->
-        <ProductDetailDialog v-model:visible="showProductDetail" :item-code="selectedProductCode" @added-to-cart="handleAddedToCart" @favorite-changed="handleFavoriteChanged" />
+        <ProductDetailDialog v-model:visible="showProductDetail" :item-code="selectedProductCode" :group-main="selectedProductGroupMain" @added-to-cart="handleAddedToCart" @favorite-changed="handleFavoriteChanged" />
     </div>
 </template>
 

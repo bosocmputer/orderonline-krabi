@@ -85,7 +85,7 @@ export default {
     getProductByItemCode(itemCode) {
         const custCode = localStorage.getItem('_userCode') || '';
         const whCode = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
-        const shelfCode = localStorage.getItem('_shelf_code');
+        const shelfCode = ''; // ตั้งค่าให้เป็นค่าว่างตามความต้องการ
         const saleType = localStorage.getItem('_saleType') || '1';
 
         return new Promise((resolve, reject) => {
