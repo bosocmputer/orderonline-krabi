@@ -374,7 +374,7 @@ function handleQuantityKeydown(event) {
             <div v-for="(item, index) in items" :key="item.id">
                 <div :class="['flex items-start gap-3 sm:gap-4', index !== items.length - 1 ? 'border-b border-gray-100 dark:border-gray-700 pb-4 mb-4' : '']">
                     <!-- Product image -->
-                    <div class="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-700" @click="router.push(`/products/${item.id}`)">
+                    <div class="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-700">
                         <img :src="getProductImage(item.item_code)" :alt="item.item_code" class="w-full h-full object-contain cursor-pointer" @error="handleImageError" />
                     </div>
 
@@ -382,10 +382,10 @@ function handleQuantityKeydown(event) {
                     <div class="flex flex-col flex-grow">
                         <div class="flex justify-between items-start mb-2">
                             <div class="mr-2">
-                                <div class="text-base sm:text-lg font-medium hover:text-primary cursor-pointer" @click="router.push(`/products/${item.id}`)">
+                                <div class="text-base sm:text-lg font-medium">
                                     {{ item.item_code }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                                 </div>
-                                <div class="text-base sm:text-lg font-medium hover:text-primary cursor-pointer" @click="router.push(`/products/${item.id}`)">
+                                <div class="text-base sm:text-lg font-medium">
                                     {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                                 </div>
                                 <div v-if="item.category" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">

@@ -458,8 +458,8 @@ async function proceedCheckout() {
             telephone: formData.value.telephone,
             // เพิ่มข้อมูลสินค้าพร้อม tax_type
             items: props.cartItems.map((item) => {
-                const taxType = getTaxType(item.item_code);
-                console.log(`StepConfirmation - สินค้า ${item.item_code}: tax_type = "${taxType}"`);
+                const taxType = getTaxType(item.item_code, item.unit_code);
+                console.log(`StepConfirmation - สินค้า ${item.item_code} - ${item.unit_code}: tax_type = "${taxType}"`);
 
                 return {
                     ...item,
@@ -473,6 +473,7 @@ async function proceedCheckout() {
             'Items with tax_type:',
             dataToSend.items.map((item) => ({
                 item_code: item.item_code,
+                unit_code: item.unit_code,
                 tax_type: item.tax_type,
                 price: item.price,
                 qty: item.qty
@@ -561,20 +562,20 @@ function handleImageError(event) {
 // คำนวณยอดรวมโดยใช้ราคายืนยัน
 function calculateConfirmedTotal() {
     return props.cartItems.reduce((total, item) => {
-        const confirmedPrice = getConfirmedPrice(item.item_code);
+        const confirmedPrice = getConfirmedPrice(item.item_code, item.unit_code);
         const price = confirmedPrice !== null ? confirmedPrice : item.price;
         return total + price * item.qty;
     }, 0);
 }
 
-function getConfirmedPrice(itemCode) {
-    const confirmedItem = confirmedItems.value.find((item) => item.item_code === itemCode);
+function getConfirmedPrice(itemCode, unitCode) {
+    const confirmedItem = confirmedItems.value.find((item) => item.item_code === itemCode && item.unit_code === unitCode);
     return confirmedItem ? parseFloat(confirmedItem.price_confirm) : null;
 }
 
 // ดึงข้อมูล tax_type ของสินค้า
-function getTaxType(itemCode) {
-    const confirmedItem = confirmedItems.value.find((item) => item.item_code === itemCode);
+function getTaxType(itemCode, unitCode) {
+    const confirmedItem = confirmedItems.value.find((item) => item.item_code === itemCode && item.unit_code === unitCode);
     return confirmedItem ? confirmedItem.tax_type : '0'; // default เป็น '0' = มีภาษี
 }
 </script>
@@ -598,15 +599,15 @@ function getTaxType(itemCode) {
                         <div class="font-medium">
                             {{ item.item_name }} <span class="text-sm text-blue-500 dark:text-white">[{{ item.shelf_code }}]</span>
                         </div>
-                        <div class="text-sm text-gray-500">{{ item.item_code }}</div>
+                        <div class="text-sm text-gray-500">{{ item.item_code }} - {{ item.unit_code }}</div>
                     </div>
 
                     <!-- Qty & Price -->
                     <div class="text-right">
                         <div class="font-medium">
                             <!-- แสดงราคาใหม่จาก price_confirm ถ้ามีความแตกต่าง -->
-                            <template v-if="getConfirmedPrice(item.item_code) !== null && getConfirmedPrice(item.item_code) !== item.price">
-                                <div class="font-medium text-green-600">฿{{ formatNumber(getConfirmedPrice(item.item_code) * item.qty) }}</div>
+                            <template v-if="getConfirmedPrice(item.item_code, item.unit_code) !== null && getConfirmedPrice(item.item_code, item.unit_code) !== item.price">
+                                <div class="font-medium text-green-600">฿{{ formatNumber(getConfirmedPrice(item.item_code, item.unit_code) * item.qty) }}</div>
                                 <div class="text-sm line-through text-gray-500">฿{{ formatNumber(item.price * item.qty) }}</div>
                             </template>
                             <template v-else>
@@ -615,8 +616,8 @@ function getTaxType(itemCode) {
                         </div>
                         <div class="text-sm text-gray-500">
                             <!-- แสดงจำนวนและราคาต่อหน่วย -->
-                            <template v-if="getConfirmedPrice(item.item_code) !== null && getConfirmedPrice(item.item_code) !== item.price">
-                                {{ item.qty }} x <span class="text-green-600">฿{{ formatNumber(getConfirmedPrice(item.item_code)) }}</span>
+                            <template v-if="getConfirmedPrice(item.item_code, item.unit_code) !== null && getConfirmedPrice(item.item_code, item.unit_code) !== item.price">
+                                {{ item.qty }} x <span class="text-green-600">฿{{ formatNumber(getConfirmedPrice(item.item_code, item.unit_code)) }}</span>
                                 <span class="line-through">฿{{ formatNumber(item.price) }}</span>
                             </template>
                             <template v-else> {{ item.qty }} x ฿{{ formatNumber(item.price) }} </template>
