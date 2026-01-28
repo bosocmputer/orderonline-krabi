@@ -360,8 +360,8 @@ async function processCancelOrder() {
                 qty: item.qty,
                 price: item.price,
                 sum_amount: (parseFloat(item.qty) * parseFloat(item.price)).toString(),
-                wh_code: item.wh_code || 'MMA01',
-                shelf_code: item.shelf_code || 'SH101',
+                wh_code: item.wh_code || '',
+                shelf_code: item.shelf_code || '',
                 stand_value: item.stand_value || '1',
                 divide_value: item.divide_value || '1',
                 ratio: item.ratio || '1'

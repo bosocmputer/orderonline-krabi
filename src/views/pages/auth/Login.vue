@@ -165,14 +165,17 @@ const loadWarehouses = async () => {
 
         if (response && response.success && Array.isArray(response.data)) {
             warehouseOptions.value = response.data;
+            allWarehouseOptions.value = response.data; // เก็บข้อมูลทั้งหมดสำหรับการค้นหา
             console.log('จำนวนคลังที่โหลดได้:', warehouseOptions.value.length);
         } else {
             console.warn('ไม่พบข้อมูลคลัง');
             warehouseOptions.value = [];
+            allWarehouseOptions.value = [];
         }
     } catch (error) {
         console.error('เกิดข้อผิดพลาดในการโหลดข้อมูลคลัง:', error);
         warehouseOptions.value = [];
+        allWarehouseOptions.value = [];
         throw error;
     } finally {
         isLoadingWarehouses.value = false;
@@ -534,6 +537,29 @@ const filterEmployees = async (event) => {
         isSearchingEmployee.value = false;
     }
 };
+
+// เพิ่มฟังก์ชันค้นหาคลัง (client-side filtering)
+// เก็บข้อมูลคลังทั้งหมดเพื่อใช้ในการ filter
+const allWarehouseOptions = ref([]);
+
+const filterWarehouses = (event) => {
+    // ดึงค่าที่ผู้ใช้พิมพ์ค้นหาจาก event
+    const searchTerm = (event.value || '').toLowerCase().trim();
+
+    // ถ้าไม่มีข้อความค้นหา ให้แสดงทั้งหมด
+    if (!searchTerm) {
+        warehouseOptions.value = [...allWarehouseOptions.value];
+        return;
+    }
+
+    // Filter จากข้อมูลที่โหลดมาแล้ว
+    warehouseOptions.value = allWarehouseOptions.value.filter((warehouse) => {
+        const code = (warehouse.code || '').toLowerCase();
+        const name = (warehouse.name || '').toLowerCase();
+        return code.includes(searchTerm) || name.includes(searchTerm);
+    });
+};
+
 // Computed property to determine if the form should be shown
 const showLoginForm = computed(() => {
     return !showCustomerSearch.value && !showEmployeeSelection.value && !showWarehouseSelection.value && !showSelectionScreen.value;
@@ -885,13 +911,13 @@ const logout = () => {
                                     <template #value="slotProps">
                                         <div v-if="slotProps.value" class="flex items-center">
                                             <i class="pi pi-user mr-2 text-primary"></i>
-                                            <div>{{ slotProps.value.code }} - {{ slotProps.value.name }}</div>
+                                            <div>{{ slotProps.value.code }} ~ {{ slotProps.value.name }}</div>
                                         </div>
                                         <span v-else>{{ slotProps.placeholder }}</span>
                                     </template>
                                     <template #option="slotProps">
                                         <div class="flex flex-column w-full" v-if="slotProps && slotProps.option">
-                                            <div class="font-bold">{{ slotProps.option.code }}</div>
+                                            <div class="font-bold">{{ slotProps.option.code }}~</div>
                                             <div>{{ slotProps.option.name }}</div>
                                         </div>
                                     </template>
@@ -902,22 +928,33 @@ const logout = () => {
                             <!-- 2. เลือกคลัง (บังคับ) -->
                             <div class="mb-3 sm:mb-4">
                                 <label class="block text-surface-900 dark:text-surface-0 font-medium mb-1 sm:mb-2"> <i class="pi pi-building mr-2"></i>เลือกคลัง <span class="text-red-500">*</span> </label>
-                                <Select v-model="selectedWarehouse" :options="warehouseOptions" optionLabel="name" placeholder="เลือกคลัง" class="w-full" :loading="isLoadingWarehouses" :showClear="false">
+                                <Select
+                                    v-model="selectedWarehouse"
+                                    :options="warehouseOptions"
+                                    optionLabel="name"
+                                    placeholder="เลือกคลัง"
+                                    class="w-full"
+                                    :loading="isLoadingWarehouses"
+                                    :showClear="false"
+                                    filter
+                                    @filter="filterWarehouses"
+                                    filterPlaceholder="พิมพ์ชื่อหรือรหัสคลัง"
+                                >
                                     <template #value="slotProps">
                                         <div v-if="slotProps.value" class="flex items-center">
                                             <i class="pi pi-building mr-2 text-primary"></i>
-                                            <div>{{ slotProps.value.code }} - {{ slotProps.value.name }}</div>
+                                            <div>{{ slotProps.value.code }} ~ {{ slotProps.value.name }}</div>
                                         </div>
                                         <span v-else>{{ slotProps.placeholder }}</span>
                                     </template>
                                     <template #option="slotProps">
                                         <div class="flex flex-column w-full" v-if="slotProps && slotProps.option">
-                                            <div class="font-bold">{{ slotProps.option.code }}</div>
+                                            <div class="font-bold">{{ slotProps.option.code }} ~ </div>
                                             <div>{{ slotProps.option.name }}</div>
                                         </div>
                                     </template>
                                 </Select>
-                                <small class="text-color-secondary">กรุณาเลือกคลังที่ต้องการใช้งาน (บังคับ)</small>
+                                <small class="text-color-secondary">พิมพ์ชื่อหรือรหัสคลังเพื่อค้นหา (บังคับเลือก)</small>
                             </div>
 
                             <!-- 3. ประเภทการขาย (RadioButton) -->

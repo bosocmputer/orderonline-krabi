@@ -296,7 +296,7 @@ function handleImageError(event) {
                 <div class="relative">
                     <!-- OverlayBadge แสดงเฉพาะเมื่อล็อกอินแล้วและมีสินค้าในตะกร้า -->
                     <OverlayBadge v-if="isAuthenticated" :value="totalItems" severity="danger">
-                        <button ref="cartButtonRef" type="button" class="layout-topbar-action flex items-center justify-center" @click="toggleMiniCart" @mouseenter="showMiniCartHandler" @mouseleave="hideMiniCartWithDelay">
+                        <button ref="cartButtonRef" type="button" class="layout-topbar-action flex items-center justify-center" @click="toggleMiniCart" >
                             <i class="pi pi-shopping-cart" style="font-size: 1.5rem" />
                             <span class="hidden sm:inline-block ml-2">ตะกร้าสินค้า</span>
                         </button>
@@ -313,8 +313,7 @@ function handleImageError(event) {
                         v-if="showMiniCart && isAuthenticated && !isCartPage"
                         ref="miniCartRef"
                         class="absolute top-full right-0 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 p-4 mt-2"
-                        @mouseenter="showMiniCartHandler"
-                        @mouseleave="hideMiniCartWithDelay"
+
                     >
                         <div class="flex justify-between items-center pb-2 mb-4 border-b border-gray-100 dark:border-gray-700">
                             <h3 class="text-base font-semibold m-0">ตะกร้าสินค้า</h3>
@@ -341,7 +340,7 @@ function handleImageError(event) {
                                         <div class="text-sm font-medium mb-1 truncate max-w-[180px]">
                                             {{ item.item_name }}
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.qty }} x ฿{{ formatTotal(item.price) }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400"><span style="color:red">[{{item.shelf_code}}]</span>  {{ item.qty }} x ฿ {{ formatTotal(item.price) }}</div>
                                     </div>
 
                                     <!-- ปุ่มลบแยกออกมาจาก router-link -->

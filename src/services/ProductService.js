@@ -139,6 +139,81 @@ export default {
     },
 
     /**
+     * ดึงข้อมูลสต็อกสินค้าตาม location (ปียาง)
+     * @param {string} itemCode - รหัสสินค้า
+     * @param {string} unitCode - หน่วยสินค้า
+     * @returns {Promise} ข้อมูลสต็อกแยกตาม location
+     */ getProductStock(itemCode, unitCode) {
+        const whCode = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+        const saleType = localStorage.getItem('_saleType') || '1';
+        const custCode = localStorage.getItem('_userCode') || '';
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API
+            apiClient
+                .get('/getProductStock', {
+                    params: {
+                        item_code: itemCode,
+                        unit_code: unitCode,
+                        wh_code: whCode,
+                        sale_type: saleType,
+                        cust_code: custCode
+                    }
+                })
+                .then((response) => {
+                    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                        // ส่งคืนข้อมูลทั้งหมด (array ของ locations)
+                        resolve({ data: response.data.data, success: true });
+                    } else {
+                        // ไม่มีข้อมูลสต็อก
+                        resolve({ data: [], success: true });
+                    }
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API getProductStock:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    getProductStockByLocation(itemCode, unitCode, wh_code, shelf_code) {
+        const whCode = wh_code || localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API
+            apiClient
+                .get('/getProductStockByLocation', {
+                    params: {
+                        item_code: itemCode,
+                        unit_code: unitCode,
+                        wh_code: whCode,
+                        shelf_code: shelf_code || ''
+                    }
+                })
+                .then((response) => {
+                    if (response.data && response.data.data) {
+                        resolve({ data: response.data.data, success: true });
+                    } else {
+                        // ไม่มีข้อมูลสต็อก
+                        resolve({
+                            data: {
+                                warehouse: wh_code,
+                                location: shelf_code,
+                                item_code: itemCode,
+                                unit_code: unitCode,
+                                balance_qty: '0'
+                            },
+                            success: true
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API getProductStock:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    /**
      * สร้าง URL รูปภาพสินค้าจาก API
      * @param {string} itemCode - รหัสสินค้า
      * @returns {string} URL รูปภาพสินค้า

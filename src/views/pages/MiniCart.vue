@@ -136,14 +136,14 @@ onUnmounted(() => {
     <div class="relative">
         <!-- OverlayBadge อยู่ด้านนอกปุ่มเพื่อให้แสดง value ได้ถูกต้อง -->
         <OverlayBadge :value="totalItems" severity="danger">
-            <button ref="cartButtonRef" type="button" class="layout-topbar-action flex items-center justify-center" @click="toggleMiniCart" @mouseenter="showMiniCartHandler" @mouseleave="hideMiniCartWithDelay">
+            <button ref="cartButtonRef" type="button" class="layout-topbar-action flex items-center justify-center" @click="toggleMiniCart">
                 <i class="pi pi-shopping-cart" style="font-size: 1.5rem" />
                 <span v-if="props.showLabel" class="hidden sm:inline-block ml-2">ตะกร้าสินค้า</span>
             </button>
         </OverlayBadge>
 
         <!-- Mini Cart Dropdown -->
-        <div v-if="showMiniCart" ref="miniCartRef" class="absolute top-full right-0 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 p-4 mt-2" @mouseenter="showMiniCartHandler" @mouseleave="hideMiniCartWithDelay">
+        <div v-if="showMiniCart" ref="miniCartRef" class="absolute top-full right-0 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 p-4 mt-2" >
             <div class="flex justify-between items-center pb-2 mb-4 border-b border-gray-100 dark:border-gray-700">
                 <h3 class="text-base font-semibold m-0">ตะกร้าสินค้า</h3>
                 <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 py-1 px-2 rounded-full"> {{ totalItems }} รายการ </span>

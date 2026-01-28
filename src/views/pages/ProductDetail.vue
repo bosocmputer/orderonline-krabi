@@ -254,8 +254,8 @@ function addToCart() {
         unit: unit.unit_code,
         unit_code: unit.unit_code,
         barcode: product.value.barcode || '',
-        wh_code: product.value.wh_code || 'MMA01',
-        shelf_code: product.value.shelf_code || 'SH101'
+        wh_code: product.value.wh_code || '',
+        shelf_code: product.value.shelf_code || ''
     };
 
     // แสดงการโหลดหรือปิดการใช้งานปุ่มขณะกำลังเพิ่มสินค้า

@@ -583,6 +583,99 @@ export const useCartStore = defineStore('cart', () => {
         return cartItems.value.some((item) => item.item_code === itemCode);
     }
 
+    // สร้าง key สำหรับระบุรายการสินค้าที่ไม่ซ้ำกัน
+    function generateCartItemKey(item) {
+        const itemCode = item.item_code || item.id || item.code || '';
+        const unitCode = item.unit_code || item.unit || '';
+        const whCode = item.wh_code || 'MMA01';
+        const shelfCode = item.shelf_code || 'SH101';
+        const barcode = item.barcode || '';
+        return `${itemCode}_${unitCode}_${whCode}_${shelfCode}_${barcode}`;
+    }
+
+    // เพิ่มสินค้าหลายรายการลงตะกร้าพร้อมกัน (ส่ง API ครั้งเดียว)
+    // หมายเหตุ: API ทำงานแบบ delete all แล้ว insert ใหม่ ดังนั้นต้องส่งสินค้าทั้งหมด (เดิม + ใหม่)
+    async function addMultipleToCart(items) {
+        try {
+            isLoading.value = true;
+            error.value = null;
+
+            // ตรวจสอบว่ามี custCode หรือไม่
+            if (!custCode.value && !loadUserData()) {
+                throw new Error('ไม่พบข้อมูลผู้ใช้');
+            }
+
+            if (!items || items.length === 0) {
+                throw new Error('ไม่มีรายการสินค้าที่จะเพิ่ม');
+            }
+
+            // สร้าง Map จากสินค้าเดิมใน cartItems (key = item_code_unit_code_wh_code_shelf_code_barcode)
+            const cartItemsMap = new Map();
+            for (const existingItem of cartItems.value) {
+                const key = generateCartItemKey(existingItem);
+                console.log('Existing item key:', key, 'qty:', existingItem.qty);
+                cartItemsMap.set(key, { ...existingItem });
+            }
+            console.log('cartItemsMap:', cartItemsMap);
+            // Loop items ใหม่: ถ้า key ซ้ำ → แทนที่ qty (เพราะ caller คำนวณ finalQty มาให้แล้ว), ถ้าไม่ซ้ำ → เพิ่มใหม่
+            console.log('items:', items);
+            for (const newItem of items) {
+                const key = generateCartItemKey(newItem);
+                const itemCode = newItem.item_code || newItem.id || newItem.code;
+                const unitCode = newItem.unit_code || newItem.unit;
+                const newQty = parseInt(newItem.qty || newItem.quantity || 1);
+
+                console.log('New item key:', key, 'qty:', newQty, 'exists:', cartItemsMap.has(key));
+
+                if (cartItemsMap.has(key)) {
+                    // รายการซ้ำ → ใช้ qty ที่ส่งมาตรงๆ (caller คำนวณรวมมาแล้ว)
+                    const existingItem = cartItemsMap.get(key);
+                    existingItem.qty = newQty;
+                    cartItemsMap.set(key, existingItem);
+                } else {
+                    // รายการใหม่ → เพิ่มเข้า Map
+                    cartItemsMap.set(key, {
+                        ...newItem,
+                        id: newItem.id || newItem.guid_code || generateGUID(),
+                        guid_code: newItem.guid_code || newItem.id || generateGUID(),
+                        item_code: itemCode,
+                        unit_code: unitCode,
+                        qty: newQty
+                    });
+                }
+            }
+
+            // แปลง Map → Array → formatCartItemForApi
+            const allItems = Array.from(cartItemsMap.values());
+            console.log('allItems:', allItems);
+            const allItemsForApi = allItems.map((item) => formatCartItemForApi(item));
+
+            console.log('Final items to send to API:', allItemsForApi);
+
+            // ส่ง API ครั้งเดียว (ทั้งของเดิม + ของใหม่)
+            const response = await CartService.addItemToCart(allItemsForApi);
+
+            if (response.data && response.data.success) {
+                // อัพเดต local state ให้ตรงกับ Map
+                cartItems.value = allItems.map((item) => ({
+                    ...item,
+                    guid_code: item.guid_code || item.id,
+                    qty: parseInt(item.qty)
+                }));
+
+                return { success: true, message: `เพิ่มสินค้า ${items.length} รายการลงตะกร้าแล้ว` };
+            }
+
+            throw new Error(response.data?.message || 'เพิ่มสินค้าไม่สำเร็จ');
+        } catch (err) {
+            console.error('Error adding multiple items to cart:', err);
+            error.value = err.message || 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้';
+            throw err;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
     function syncWithApiData(apiItems) {
         // แปลงข้อมูลให้อยู่ในฟอร์แมตที่ถูกต้อง
         const formattedItems = apiItems.map((item) => ({
@@ -618,6 +711,7 @@ export const useCartStore = defineStore('cart', () => {
         loadCartItems,
         loadCartItemsForCustomer,
         addToCart,
+        addMultipleToCart,
         updateCartItem,
         removeFromCart,
         clearCart,

@@ -249,11 +249,11 @@ function handleLoadMore() {
 }
 
 function getInventoryStatus(soldOut) {
-    return soldOut === '1' ? 'OUTOFSTOCK' : 'INSTOCK';
+    return soldOut === '1' ? 'OUTOFSTOCK' : '';
 }
 
 function getInventoryLabel(soldOut) {
-    return soldOut === '1' ? 'OUT OF STOCK' : 'INSTOCK';
+    return soldOut === '1' ? 'OUT OF STOCK' : '';
 }
 
 // เพิ่มฟังก์ชัน debounce สำหรับการค้นหา
@@ -519,13 +519,13 @@ const shouldShowTireYearSelector = computed(() => {
         <Toast position="top-right" />
 
         <!-- การตั้งค่าต่างๆ -->
-        <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700" v-if="shouldShowTireYearSelector">
-            <!-- บรรทัดแรก: ปียางรถยนต์ และคลัง และประเภทการขาย -->
+        <!-- <div class="px-3 py-2 border-t border-gray-100 dark:border-gray-700" v-if="shouldShowTireYearSelector">
+
             <div class="flex items-center gap-4 mb-2">
-                <!-- <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2">
                     <label for="tire-year" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">ปียางรถยนต์:</label>
                     <Select id="tire-year" v-model="selectedTireYear" :options="tireYearOptions" optionLabel="label" optionValue="value" placeholder="เลือกปี" class="w-32" @change="handleTireYearChange" />
-                </div> -->
+                </div>
                 <div class="flex items-center gap-2">
                     <label for="warehouse" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">คลัง:</label>
                     <Select id="warehouse" v-model="selectedWarehouse" :options="warehouseOptions" optionLabel="name" placeholder="เลือกคลัง" class="w-60" :loading="isLoadingWarehouses" @change="handleWarehouseChange" />
@@ -587,8 +587,8 @@ const shouldShowTireYearSelector = computed(() => {
                         <img :src="product.image" :alt="product.item_name" class="w-full aspect-square object-contain" @error="$event.target.src = product.imageFallback" />
 
                         <!-- สถานะสินค้า -->
-                        <div class="dark:bg-surface-900 absolute rounded-border" style="left: 5px; top: 5px">
-                            <Tag :value="getInventoryLabel(product.sold_out)" :severity="getInventoryStatus(product.sold_out)" class="inventory-tag" :class="{ 'out-of-stock': product.sold_out === '1' }" />
+                        <div class="dark:bg-surface-900 absolute rounded-border" style="left: 0px; top: 0px">
+                            <Tag v-if="product.sold_out == '1'" :value="getInventoryLabel(product.sold_out)" severity="warn" class="inventory-tag" :class="{ 'out-of-stock': product.sold_out === '1' }" />
                         </div>
 
                         <!-- แสดงปุ่มรายการโปรด (สามารถคลิกได้) -->
@@ -678,7 +678,7 @@ const shouldShowTireYearSelector = computed(() => {
 :deep(.inventory-tag) {
     font-size: 0.85rem !important; /* เพิ่มขนาดตัวอักษร */
     font-weight: bold !important;
-    padding: 0.5rem 0.7rem !important; /* เพิ่ม padding */
+    padding: 0.1rem 0.3rem !important; /* เพิ่ม padding */
     border-radius: 4px !important;
     letter-spacing: 0.5px !important;
 }
@@ -686,7 +686,7 @@ const shouldShowTireYearSelector = computed(() => {
 /* สไตล์เฉพาะสำหรับ OUT OF STOCK - เน้นให้เด่นชัด */
 :deep(.out-of-stock) {
     color: red !important; /* ตัวอักษรสีขาว */
-    font-size: 1.1rem !important; /* เพิ่มขนาดตัวอักษร */
+    font-size: 0.65rem !important; /* เพิ่มขนาดตัวอักษร */
 }
 
 /* สไตล์สำหรับตำแหน่ง Tag - ปรับตำแหน่งให้เห็นชัดเจน */
