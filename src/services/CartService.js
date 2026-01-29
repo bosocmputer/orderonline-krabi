@@ -18,15 +18,17 @@ class CartService {
     // ดึงรายการสินค้าในตะกร้า
     async getCartItems(custCode, whCode = null) {
         const shelfCode = localStorage.getItem('_shelf_code');
+        const wh_code = whCode || localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+
         const params = {
             cust_code: custCode,
-            wh_code: whCode,
+            wh_code: wh_code,
             shelf_code: shelfCode
         };
 
         // เพิ่ม wh_code ถ้ามีการส่งมาและไม่เป็น null หรือ "null"
-        if (whCode && whCode !== 'null' && whCode.trim() !== '') {
-            params.wh_code = whCode;
+        if (wh_code && wh_code !== 'null' && wh_code.trim() !== '') {
+            params.wh_code = wh_code;
         }
 
         console.log('CartService.getCartItems params:', params);

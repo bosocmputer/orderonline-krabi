@@ -52,6 +52,27 @@ const isLoggedIn = computed(() => authenStore.isAuthenticated);
 const stockLocations = ref([]);
 // จำนวนที่จะสั่งซื้อแต่ละ location { location: quantity }
 const locationQuantities = ref({});
+// คลังที่เลือก
+const selectedWarehouse = ref('');
+
+// ดึงคลังที่เลือกจาก localStorage
+function getSelectedWarehouse() {
+    try {
+        const warehouseData = localStorage.getItem('_selectedWarehouse');
+        if (warehouseData) {
+            const parsed = JSON.parse(warehouseData);
+            return parsed.code || '';
+        }
+    } catch (err) {
+        console.error('Error parsing warehouse data:', err);
+    }
+    return '';
+}
+
+// ตรวจสอบว่า location นั้นสามารถสั่งได้หรือไม่ (อยู่ในคลังที่เลือก)
+function isLocationOrderable(loc) {
+    return loc.warehouse === selectedWarehouse.value;
+}
 
 // สำหรับการแชร์
 const shareItems = ref([
@@ -205,14 +226,24 @@ async function fetchProductStock() {
     if (!product.value || !product.value.code || !currentUnit.value) return;
 
     loadingStock.value = true;
+    // ดึงคลังที่เลือกจาก localStorage
+    selectedWarehouse.value = getSelectedWarehouse();
+
     try {
         const result = await ProductService.getProductStock(product.value.code, currentUnit.value.unit_code);
 
         if (result.data && result.data.length > 0) {
-            stockLocations.value = result.data;
+            // เรียงลำดับให้ warehouse ที่ตรงกับที่เลือกขึ้นก่อน
+            const sortedData = [...result.data].sort((a, b) => {
+                const aMatch = a.warehouse === selectedWarehouse.value ? 0 : 1;
+                const bMatch = b.warehouse === selectedWarehouse.value ? 0 : 1;
+                return aMatch - bMatch;
+            });
+
+            stockLocations.value = sortedData;
             // รีเซ็ตจำนวนสั่งซื้อแต่ละ location เป็น 0
             locationQuantities.value = {};
-            result.data.forEach((loc) => {
+            sortedData.forEach((loc) => {
                 locationQuantities.value[loc.location] = 0;
             });
         } else {
@@ -769,14 +800,25 @@ const dialogVisible = computed({
                         <!-- Stock table -->
                         <div v-else-if="stockLocations.length > 0" class="bg-gray-50 dark:bg-gray-800/30 rounded-lg overflow-hidden">
                             <!-- Header -->
-                            <div class="grid grid-cols-4 gap-2 p-3 bg-gray-100 dark:bg-gray-700 font-medium text-sm">
+                            <div class="grid grid-cols-5 gap-2 p-3 bg-gray-100 dark:bg-gray-700 font-medium text-sm">
+                                <div class="text-center">คลัง</div>
                                 <div class="text-center">คงเหลือ</div>
                                 <div class="text-center">จำนวนสั่ง</div>
                                 <div class="text-center">{{ groupMain == 'G001' || groupMain == 'G003' ? 'ปียาง' : 'ที่เก็บ' }}</div>
                                 <div class="text-center">ราคา</div>
                             </div>
                             <!-- Rows -->
-                            <div v-for="(loc, index) in stockLocations" :key="loc.location" :class="['grid grid-cols-4 gap-2 p-3 items-center', index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50']">
+                            <div v-for="(loc, index) in stockLocations" :key="loc.location" :class="['grid grid-cols-5 gap-2 p-3 items-center', index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50', !isLocationOrderable(loc) ? 'opacity-60' : '']">
+                                <!-- คลัง -->
+                                <div class="text-center">
+                                    <span :class="['font-medium text-xs', isLocationOrderable(loc) ? 'text-green-600' : 'text-gray-500']">
+                                        {{ loc.warehouse }}
+                                    </span>
+                                    <div v-if="isLocationOrderable(loc)" class="text-xs text-green-500">
+                                        <i class="pi pi-check-circle"></i>
+                                    </div>
+                                </div>
+
                                 <!-- คงเหลือ -->
                                 <div class="text-center">
                                     <span class="font-medium">{{ parseInt(loc.balance_qty) }}</span>
@@ -784,25 +826,30 @@ const dialogVisible = computed({
                                     <div v-if="getLocationQuantityInCart(loc.location) > 0" class="text-xs text-blue-500">ในตะกร้า: {{ getLocationQuantityInCart(loc.location) }}</div>
                                 </div>
 
-                                <!-- จำนวนสั่ง -->
+                                <!-- จำนวนสั่ง - แสดงเฉพาะ warehouse ที่เลือก -->
                                 <div class="flex items-center justify-center gap-1">
-                                    <Button
-                                        icon="pi pi-minus"
-                                        text
-                                        rounded
-                                        size="small"
-                                        @click="decrementLocationQuantity(loc.location)"
-                                        :disabled="(locationQuantities[loc.location] || 0) <= 0"
-                                        class="w-8 h-8 border border-gray-300 dark:border-gray-600"
-                                    />
-                                    <input
-                                        type="text"
-                                        v-model="locationQuantities[loc.location]"
-                                        class="w-12 text-center font-medium border border-gray-300 dark:border-gray-600 rounded px-1 py-1 bg-white dark:bg-gray-700"
-                                        @blur="validateLocationQuantity(loc.location)"
-                                        @keydown="handleQuantityKeydown"
-                                    />
-                                    <Button icon="pi pi-plus" text rounded size="small" @click="incrementLocationQuantity(loc.location)" :disabled="!canIncrementLocation(loc.location)" class="w-8 h-8 border border-gray-300 dark:border-gray-600" />
+                                    <template v-if="isLocationOrderable(loc)">
+                                        <Button
+                                            icon="pi pi-minus"
+                                            text
+                                            rounded
+                                            size="small"
+                                            @click="decrementLocationQuantity(loc.location)"
+                                            :disabled="(locationQuantities[loc.location] || 0) <= 0"
+                                            class="w-8 h-8 border border-gray-300 dark:border-gray-600"
+                                        />
+                                        <input
+                                            type="text"
+                                            v-model="locationQuantities[loc.location]"
+                                            class="w-12 text-center font-medium border border-gray-300 dark:border-gray-600 rounded px-1 py-1 bg-white dark:bg-gray-700"
+                                            @blur="validateLocationQuantity(loc.location)"
+                                            @keydown="handleQuantityKeydown"
+                                        />
+                                        <Button icon="pi pi-plus" text rounded size="small" @click="incrementLocationQuantity(loc.location)" :disabled="!canIncrementLocation(loc.location)" class="w-8 h-8 border border-gray-300 dark:border-gray-600" />
+                                    </template>
+                                    <template v-else>
+                                        <span class="text-gray-400 text-xs">-</span>
+                                    </template>
                                 </div>
                                 <!-- ปียาง -->
                                 <div class="text-center">
@@ -816,7 +863,8 @@ const dialogVisible = computed({
                             </div>
 
                             <!-- Total -->
-                            <div class="grid grid-cols-4 gap-2 p-3 bg-gray-100 dark:bg-gray-700 font-medium border-t">
+                            <div class="grid grid-cols-5 gap-2 p-3 bg-gray-100 dark:bg-gray-700 font-medium border-t">
+                                <div></div>
                                 <div class="text-center">รวม: {{ totalStockBalance }}</div>
                                 <div class="text-center text-primary">สั่ง: {{ totalOrderQuantity }}</div>
                                 <div></div>

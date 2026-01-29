@@ -52,7 +52,8 @@ const loadWarehouses = async () => {
 
 // ฟังก์ชัน filter คลัง
 const filterWarehouses = (event) => {
-    const searchTerm = (event.value || '').toLowerCase().trim();
+    const searchTerm = (event.value || '').trim();
+    const searchTermLower = searchTerm.toLowerCase();
 
     if (!searchTerm) {
         warehouseOptions.value = [...allWarehouseOptions.value];
@@ -62,8 +63,13 @@ const filterWarehouses = (event) => {
     warehouseOptions.value = allWarehouseOptions.value.filter((warehouse) => {
         const code = (warehouse.code || '').toLowerCase();
         const name = (warehouse.name || '').toLowerCase();
-        return code.includes(searchTerm) || name.includes(searchTerm);
+
+        const matched = code.includes(searchTermLower) || name.includes(searchTermLower);
+        // console.log('Filtering warehouse:', { code, name, searchTermLower, matched });
+        return matched;
     });
+
+    // console.log('Filtered warehouses count:', warehouseOptions.value.length, warehouseOptions.value);
 };
 
 // ฟังก์ชันเปิด dialog เปลี่ยนคลัง
@@ -208,6 +214,7 @@ onMounted(() => {
                     class="w-full"
                     :loading="isLoadingWarehouses"
                     filter
+                    :filterFields="['code', 'name']"
                     @filter="filterWarehouses"
                     filterPlaceholder="พิมพ์ชื่อหรือรหัสคลัง"
                 >
