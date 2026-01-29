@@ -98,17 +98,23 @@ const galleryOptions = ref([
     }
 ]);
 
-// ตรวจสอบว่าสินค้านี้อยู่ในตะกร้าหรือไม่
+// ตรวจสอบว่าสินค้านี้อยู่ในตะกร้าหรือไม่ (ตาม item_code + unit_code ที่เลือก)
 const isInCart = computed(() => {
-    if (!product.value) return false;
-    return cartStore.isInCart(product.value.id || product.value.code);
+    if (!product.value || !currentUnit.value) return false;
+    const productCode = product.value.id || product.value.code;
+    const unitCode = currentUnit.value.unit_code;
+    return cartStore.cartItems.some((item) => item.item_code === productCode && item.unit_code === unitCode);
 });
 
-// จำนวนที่มีในตะกร้า
+// จำนวนที่มีในตะกร้า (รวมทุก location ของ item_code + unit_code ที่เลือก)
 const quantityInCart = computed(() => {
-    if (!product.value) return 0;
-    const item = cartStore.cartItems.find((item) => item.item_code === (product.value.id || product.value.code));
-    return item ? parseInt(item.qty) : 0;
+    if (!product.value || !currentUnit.value) return 0;
+    const productCode = product.value.id || product.value.code;
+    const unitCode = currentUnit.value.unit_code;
+    // รวมจำนวนจากทุก location ที่มี item_code และ unit_code เดียวกัน
+    return cartStore.cartItems
+        .filter((item) => item.item_code === productCode && item.unit_code === unitCode)
+        .reduce((total, item) => total + parseInt(item.qty || 0), 0);
 });
 
 // หน่วยสินค้าที่กำลังเลือก
