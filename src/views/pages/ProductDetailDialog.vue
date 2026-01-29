@@ -146,6 +146,19 @@ const totalOrderQuantity = computed(() => {
     return Object.values(locationQuantities.value).reduce((sum, qty) => sum + (parseInt(qty) || 0), 0);
 });
 
+// คำนวณราคารวมของสินค้าที่เลือกทั้งหมด
+const totalOrderPrice = computed(() => {
+    let total = 0;
+    for (const [location, qty] of Object.entries(locationQuantities.value)) {
+        if (qty > 0) {
+            const loc = stockLocations.value.find((l) => l.location.toString() === location.toString());
+            const price = parseFloat(loc?.price || 0);
+            total += price * parseInt(qty);
+        }
+    }
+    return total;
+});
+
 // ตรวจสอบว่าสินค้าหมด (ไม่มี location หรือ stock = 0)
 const isOutOfStock = computed(() => {
     return stockLocations.value.length === 0 || totalStockBalance.value <= 0;
@@ -801,7 +814,7 @@ const dialogVisible = computed({
                                 <div class="text-center">รวม: {{ totalStockBalance }}</div>
                                 <div class="text-center text-primary">สั่ง: {{ totalOrderQuantity }}</div>
                                 <div></div>
-                                <div></div>
+                                <div class="text-center text-green-600">฿{{ formatNumber(totalOrderPrice) }}</div>
                             </div>
                         </div>
                     </div>

@@ -213,6 +213,48 @@ export default {
         });
     },
 
+    getProductStockPriceByLocation(itemCode, unitCode, wh_code, shelf_code) {
+        const whCode = wh_code || localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
+        const saleType = localStorage.getItem('_saleType') || '1';
+        const custCode = localStorage.getItem('_userCode') || '';
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API
+            apiClient
+                .get('/getProductStockPriceByLocation', {
+                    params: {
+                        item_code: itemCode,
+                        unit_code: unitCode,
+                        wh_code: whCode,
+                        shelf_code: shelf_code || '',
+                        sale_type: saleType,
+                        cust_code: custCode
+                    }
+                })
+                .then((response) => {
+                    if (response.data && response.data.data) {
+                        resolve({ data: response.data.data, success: true });
+                    } else {
+                        // ไม่มีข้อมูลสต็อก
+                        resolve({
+                            data: {
+                                warehouse: wh_code,
+                                location: shelf_code,
+                                item_code: itemCode,
+                                unit_code: unitCode,
+                                balance_qty: '0',
+                                price: '0'
+                            },
+                            success: true
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API getProductStock:', error);
+                    reject(error);
+                });
+        });
+    },
+
     /**
      * สร้าง URL รูปภาพสินค้าจาก API
      * @param {string} itemCode - รหัสสินค้า

@@ -1,5 +1,6 @@
 <script setup>
 import CartService from '@/services/CartService';
+import ProductService from '@/services/ProductService';
 import { useCartStore } from '@/stores/cartStore';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
@@ -114,6 +115,9 @@ async function fetchCartItems() {
 
             // สำคัญ: ซิงค์กับ Pinia store เพื่อให้ MiniCart แสดงข้อมูลเดียวกัน
             cartStore.syncWithApiData(localCartItems.value);
+
+            // Lazy load: ดึง balance_qty จาก getProductStockByLocation
+            await fetchStockForCartItems();
         }
     } catch (error) {
         console.error('Error fetching cart items:', error);
@@ -121,8 +125,45 @@ async function fetchCartItems() {
     }
 }
 
+// Lazy load stock สำหรับ cart items
+async function fetchStockForCartItems() {
+    if (localCartItems.value.length === 0) return;
+
+    try {
+        // เรียก getProductStockByLocation แบบ parallel สำหรับทุก item
+        const stockPromises = localCartItems.value.map((item) =>
+            ProductService.getProductStockByLocation(
+                item.item_code,
+                item.unit_code,
+                item.wh_code,
+                item.shelf_code
+            ).catch((err) => {
+                console.error(`Error fetching stock for ${item.item_code}:`, err);
+                return { data: { balance_qty: '0' }, success: false };
+            })
+        );
+
+        const stockResults = await Promise.all(stockPromises);
+
+        // Map balance_qty เข้าไปใน localCartItems
+        localCartItems.value = localCartItems.value.map((item, index) => {
+            const stockData = stockResults[index]?.data;
+            return {
+                ...item,
+                balance_qty: stockData?.balance_qty || '0'
+            };
+        });
+
+        // ซิงค์กับ store อีกครั้งหลังจากได้ balance_qty
+        cartStore.syncWithApiData(localCartItems.value);
+    } catch (error) {
+        console.error('Error fetching stock for cart items:', error);
+    }
+}
+
 // Format cart items for API
 function formatCartItemsForApi(items) {
+    console.log('Formatting cart items for API:', items);
     return items.map((item) => ({
         creator_code: userData.value.user_code,
         cust_code: userData.value.user_code,
@@ -171,15 +212,17 @@ async function updateCartItem(item) {
         await CartService.updateCartItemQuantity(cartItemData);
         hasCartChanges.value = false;
 
-        // Update store
-        const storeItem = {
-            id: item.id || item.guid_code,
-            name: item.item_name,
-            price: parseFloat(item.price),
-            quantity: parseInt(item.qty)
-        };
+        // อัปเดต local state ใน localCartItems
+        const index = localCartItems.value.findIndex((i) => i.id === item.id || i.guid_code === item.guid_code);
+        if (index !== -1) {
+            localCartItems.value[index] = {
+                ...localCartItems.value[index],
+                qty: parseInt(item.qty)
+            };
+        }
 
-        await cartStore.updateCartItem(storeItem);
+        // ซิงค์กับ store (ไม่เรียก API ซ้ำ)
+        cartStore.syncWithApiData(localCartItems.value);
     } catch (error) {
         console.error('Error updating cart item:', error);
         throw error;

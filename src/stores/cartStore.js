@@ -11,6 +11,19 @@ export const useCartStore = defineStore('cart', () => {
     const custCode = ref('');
     const empCode = ref('');
 
+    // Helper function สำหรับดึง warehouse code จาก localStorage
+    function getWarehouseCode() {
+        try {
+            const warehouseData = localStorage.getItem('_selectedWarehouse');
+            if (warehouseData) {
+                return JSON.parse(warehouseData).code || '';
+            }
+        } catch (err) {
+            console.error('Error parsing warehouse data:', err);
+        }
+        return '';
+    }
+
     // Load user data from local storage
     function loadUserData() {
         try {
@@ -42,8 +55,8 @@ export const useCartStore = defineStore('cart', () => {
             barcode: item.barcode || '',
             qty: (parseInt(item.qty) || parseInt(item.quantity) || 1).toString(),
             price: (item.price || 0).toString(),
-            wh_code: item.wh_code || 'MMA01',
-            shelf_code: item.shelf_code || 'SH101',
+            wh_code: item.wh_code || getWarehouseCode(),
+            shelf_code: item.shelf_code || item.location || '',
             ratio: item.ratio || '1',
             stand_value: item.stand_value || '1',
             divide_value: item.divide_value || '1',
@@ -418,8 +431,8 @@ export const useCartStore = defineStore('cart', () => {
                     price: item.price.toString(),
                     sum_amount: sumAmount,
                     unit_code: item.unit_code || 'ชิ้น',
-                    wh_code: item.wh_code || 'MMA01',
-                    shelf_code: item.shelf_code || 'SH101',
+                    wh_code: item.wh_code || getWarehouseCode(),
+                    shelf_code: item.shelf_code || item.location || '',
                     ratio: item.ratio || '1',
                     stand_value: item.stand_value || '1',
                     divide_value: item.divide_value || '1',
@@ -587,8 +600,8 @@ export const useCartStore = defineStore('cart', () => {
     function generateCartItemKey(item) {
         const itemCode = item.item_code || item.id || item.code || '';
         const unitCode = item.unit_code || item.unit || '';
-        const whCode = item.wh_code || 'MMA01';
-        const shelfCode = item.shelf_code || 'SH101';
+        const whCode = item.wh_code || getWarehouseCode();
+        const shelfCode = item.shelf_code || item.location || '';
         const barcode = item.barcode || '';
         return `${itemCode}_${unitCode}_${whCode}_${shelfCode}_${barcode}`;
     }

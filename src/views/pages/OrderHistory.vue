@@ -427,15 +427,6 @@ async function reorderItems(order) {
             throw new Error('ไม่พบรายการสินค้าในคำสั่งซื้อ');
         }
 
-        // ดึงข้อมูล userData เพื่อใช้ตอนเรียก API
-        const userData = localStorage.getItem('_userData');
-        if (!userData) {
-            throw new Error('กรุณาเข้าสู่ระบบใหม่');
-        }
-
-        const userObj = JSON.parse(userData);
-        const custCode = userObj.user_code;
-
         // สร้าง toast สำหรับแสดงความก้าวหน้า
         toast.add({
             severity: 'info',
@@ -444,72 +435,88 @@ async function reorderItems(order) {
             life: 3000
         });
 
-        // วนลูปเพื่อตรวจสอบราคาและสต็อกของแต่ละสินค้า
+        // เรียก API แบบ parallel เพื่อตรวจสอบราคาและสต็อกของทุกสินค้า
+        const stockPromises = selectedOrderDetails.value.map((item) =>
+            ProductService.getProductStockPriceByLocation(item.item_code, item.unit_code, item.wh_code, item.shelf_code).catch((err) => {
+                console.error(`Error fetching stock for ${item.item_code}:`, err);
+                return { data: null, success: false, error: err };
+            })
+        );
+
+        const stockResults = await Promise.all(stockPromises);
+
+        // ประมวลผลและเตรียมสินค้าที่จะเพิ่มลงตะกร้า
         const itemsToAdd = [];
         const unavailableItems = [];
+        const warningItems = [];
 
-        for (const item of selectedOrderDetails.value) {
-            try {
-                // เรียก API เพื่อตรวจสอบราคาและสต็อกล่าสุด
-                const response = await ProductService.getProductBalancePrice(custCode, item.item_code, item.unit_code);
+        selectedOrderDetails.value.forEach((item, index) => {
+            const stockResult = stockResults[index];
 
-                if (response?.data?.success && response.data.data && response.data.data.length > 0) {
-                    const product = response.data.data[0];
-
-                    // ตรวจสอบว่ามีสินค้าในสต็อกหรือไม่
-                    if (product.sold_out === '1' || parseFloat(product.balance_qty) <= 0) {
-                        unavailableItems.push({
-                            ...item,
-                            reason: 'สินค้าหมด'
-                        });
-                        continue;
-                    }
-
-                    // ตรวจสอบว่าจำนวนที่ต้องการสั่งเกินสต็อกหรือไม่
-                    const requestedQty = parseInt(item.qty);
-                    const availableQty = parseFloat(product.balance_qty);
-
-                    if (requestedQty > availableQty) {
-                        // ถ้าสินค้ามีไม่พอ ให้ใช้จำนวนที่มีในสต็อก
-                        itemsToAdd.push({
-                            ...product,
-                            id: product.item_code,
-                            code: product.item_code,
-                            name: product.item_name,
-                            image: getProductImage(product.item_code),
-                            qty: availableQty
-                        });
-
-                        toast.add({
-                            severity: 'warn',
-                            summary: 'สินค้ามีจำนวนจำกัด',
-                            detail: `${product.item_name} มีในสต็อกเพียง ${availableQty} ${product.unit_code}`,
-                            life: 5000
-                        });
-                    } else {
-                        // ถ้าสินค้ามีพอ ให้ใช้จำนวนเดิม
-                        itemsToAdd.push({
-                            ...product,
-                            id: product.item_code,
-                            code: product.item_code,
-                            name: product.item_name,
-                            image: getProductImage(product.item_code),
-                            qty: requestedQty
-                        });
-                    }
-                } else {
-                    unavailableItems.push({
-                        ...item,
-                        reason: 'ไม่พบข้อมูลสินค้า'
-                    });
-                }
-            } catch (err) {
-                console.error('Error checking product availability:', err);
+            if (!stockResult?.success || !stockResult?.data) {
                 unavailableItems.push({
                     ...item,
-                    reason: 'เกิดข้อผิดพลาดในการตรวจสอบ'
+                    reason: 'ไม่พบข้อมูลสินค้า'
+                });
+                return;
+            }
+
+            const stockData = stockResult.data;
+            const availableQty = parseFloat(stockData.balance_qty || 0);
+            const price = parseFloat(stockData.price || 0);
+
+            // ตรวจสอบว่ามีสินค้าในสต็อกหรือไม่
+            if (availableQty <= 0) {
+                unavailableItems.push({
+                    ...item,
+                    reason: 'สินค้าหมด'
+                });
+                return;
+            }
+
+            // ตรวจสอบว่าจำนวนที่ต้องการสั่งเกินสต็อกหรือไม่
+            const requestedQty = parseInt(item.qty);
+            let finalQty = requestedQty;
+
+            if (requestedQty > availableQty) {
+                // ถ้าสินค้ามีไม่พอ ให้ใช้จำนวนที่มีในสต็อก
+                finalQty = availableQty;
+                warningItems.push({
+                    name: item.item_name,
+                    availableQty: availableQty,
+                    unit: item.unit_code
                 });
             }
+
+            // เพิ่มสินค้าลงรายการ
+            itemsToAdd.push({
+                id: `${item.item_code}_${item.unit_code}_${item.shelf_code || ''}`,
+                item_code: item.item_code,
+                code: item.item_code,
+                item_name: item.item_name,
+                name: item.item_name,
+                unit_code: item.unit_code,
+                unit: item.unit_code,
+                barcode: item.barcode || '',
+                wh_code: item.wh_code || stockData.warehouse || '',
+                shelf_code: item.shelf_code || stockData.location || '',
+                image: getProductImage(item.item_code),
+                price: price,
+                balance_qty: availableQty,
+                qty: finalQty
+            });
+        });
+
+        // แสดง warning สำหรับสินค้าที่มีจำกัด
+        if (warningItems.length > 0) {
+            warningItems.forEach((item) => {
+                toast.add({
+                    severity: 'warn',
+                    summary: 'สินค้ามีจำนวนจำกัด',
+                    detail: `${item.name} มีในสต็อกเพียง ${item.availableQty} ${item.unit}`,
+                    life: 5000
+                });
+            });
         }
 
         // ถ้าไม่มีสินค้าที่สามารถสั่งได้เลย
@@ -523,10 +530,8 @@ async function reorderItems(order) {
             return;
         }
 
-        // เพิ่มสินค้าลงตะกร้า
-        for (const item of itemsToAdd) {
-            await cartStore.addToCart(item, item.qty);
-        }
+        // เพิ่มสินค้าลงตะกร้าทีเดียว
+        await cartStore.addMultipleToCart(itemsToAdd);
 
         // แสดงผล
         if (unavailableItems.length > 0) {
