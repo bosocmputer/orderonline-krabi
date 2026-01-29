@@ -1374,7 +1374,7 @@ onMounted(fetchOrderHistory);
             </div>
 
             <!-- Order details dialog ที่ปรับปรุงแล้ว -->
-            <Dialog v-model:visible="displayOrderDetails" :header="`รายละเอียดคำสั่งซื้อ ${selectedOrder?.doc_no || ''}`" :style="{ width: '95%', maxWidth: '800px' }" :modal="true" :closeOnEscape="true" :dismissableMask="true">
+            <Dialog v-model:visible="displayOrderDetails" :draggable="false" :header="`รายละเอียดคำสั่งซื้อ ${selectedOrder?.doc_no || ''}`" :style="{ width: '95%', maxWidth: '800px' }" :modal="true" :closeOnEscape="true" :dismissableMask="true">
                 <!-- Loading state for details -->
                 <div v-if="loadingDetails" class="flex justify-center items-center p-8">
                     <ProgressSpinner strokeWidth="4" style="width: 50px; height: 50px" />
@@ -1400,6 +1400,14 @@ onMounted(fetchOrderHistory);
                             <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 วันที่สั่งซื้อ:
                                 {{ formatDate(selectedOrder.doc_date, selectedOrder.doc_time) }}
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                คลัง:
+                                {{ selectedOrder.wh_code }} ~ {{ selectedOrder.wh_name }}
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                ประเภทการขาย:
+                                {{ selectedOrder.sale_type }}
                             </div>
                         </div>
 

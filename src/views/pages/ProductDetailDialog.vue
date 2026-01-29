@@ -133,9 +133,7 @@ const quantityInCart = computed(() => {
     const productCode = product.value.id || product.value.code;
     const unitCode = currentUnit.value.unit_code;
     // รวมจำนวนจากทุก location ที่มี item_code และ unit_code เดียวกัน
-    return cartStore.cartItems
-        .filter((item) => item.item_code === productCode && item.unit_code === unitCode)
-        .reduce((total, item) => total + parseInt(item.qty || 0), 0);
+    return cartStore.cartItems.filter((item) => item.item_code === productCode && item.unit_code === unitCode).reduce((total, item) => total + parseInt(item.qty || 0), 0);
 });
 
 // หน่วยสินค้าที่กำลังเลือก
@@ -199,7 +197,7 @@ const canAddToCart = computed(() => {
 // ตรวจสอบเมื่อ Dialog เปิดและมี itemCode หรือเมื่อ itemCode เปลี่ยน
 watch([() => props.visible, () => props.itemCode], ([newVisible, newItemCode], [oldVisible, oldItemCode]) => {
     if (newVisible && newItemCode && ((!oldVisible && newVisible) || (newVisible && newItemCode !== oldItemCode))) {
-        console.log('Fetching product detail for:', newItemCode);
+        // console.log('Fetching product detail for:', newItemCode);
         // รีเซ็ตค่าต่างๆ เมื่อโหลดข้อมูลใหม่
         product.value = null;
         images.value = [];
@@ -430,13 +428,14 @@ function copyLink() {
 // เพิ่มจำนวนสินค้าตาม location
 function incrementLocationQuantity(location) {
     const loc = stockLocations.value.find((l) => l.location === location);
+    const warehouse = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
     if (!loc) return;
 
     const maxQty = parseInt(loc.balance_qty) || 0;
     const currentQty = locationQuantities.value[location] || 0;
 
     // ตรวจสอบจำนวนในตะกร้าของ location เดียวกัน
-    const inCartQty = getLocationQuantityInCart(location);
+    const inCartQty = getLocationQuantityInCart(location, warehouse);
     const remainingStock = maxQty - inCartQty;
 
     if (currentQty < remainingStock) {
@@ -459,21 +458,24 @@ function decrementLocationQuantity(location) {
     }
 }
 
-// ดึงจำนวนที่มีในตะกร้าของ location นั้นๆ
-function getLocationQuantityInCart(location) {
+// ดึงจำนวนที่มีในตะกร้าของ location นั้นๆ (รวมเงื่อนไขคลังด้วย)
+function getLocationQuantityInCart(location, warehouse) {
     if (!product.value || !currentUnit.value) return 0;
 
-    const cartItem = cartStore.cartItems.find((item) => item.item_code === (product.value.id || product.value.code) && item.unit_code === currentUnit.value.unit_code && item.shelf_code === location);
+    // console.log('cartStore.cartItems :', cartStore.cartItems);
+    // console.log('warehouse :', warehouse, ' location :', location);
+    const cartItem = cartStore.cartItems.find((item) => item.item_code === (product.value.id || product.value.code) && item.unit_code === currentUnit.value.unit_code && item.shelf_code === location && item.wh_code === warehouse);
     return cartItem ? parseInt(cartItem.qty) : 0;
 }
 
 // คำนวณจำนวนที่สามารถเพิ่มได้อีกของแต่ละ location
 function getRemainingStockForLocation(location) {
     const loc = stockLocations.value.find((l) => l.location === location);
+    const warehouse = localStorage.getItem('_selectedWarehouse') ? JSON.parse(localStorage.getItem('_selectedWarehouse')).code : '';
     if (!loc) return 0;
 
     const maxQty = parseInt(loc.balance_qty) || 0;
-    const inCartQty = getLocationQuantityInCart(location);
+    const inCartQty = getLocationQuantityInCart(location, warehouse);
     return Math.max(0, maxQty - inCartQty);
 }
 
@@ -493,13 +495,13 @@ function addToCart() {
     // รวบรวมรายการสินค้าทั้งหมดเป็น array เดียว
     const cartItems = [];
 
-    console.log('locationQuantities', locationQuantities.value);
-    console.log('stockLocations', stockLocations.value);
+    // console.log('locationQuantities', locationQuantities.value);
+    // console.log('stockLocations', stockLocations.value);
 
     for (const [location, qty] of Object.entries(locationQuantities.value)) {
         if (qty > 0) {
             const loc = stockLocations.value.find((l) => l.location.toString() === location.toString());
-            console.log('loc', loc);
+            // console.log('loc', loc);
 
             const cartItem = {
                 id: `${product.value.code}_${unit.unit_code}_${location}`,
@@ -517,22 +519,22 @@ function addToCart() {
                 shelf_code: location, // ใช้ location เป็น shelf_code (ปียาง)
                 location_name: loc?.location_name || location
             };
-            console.log('cartItem', cartItem);
+            // console.log('cartItem', cartItem);
             // ตรวจสอบว่ามีสินค้านี้ในตะกร้าแล้วหรือไม่
 
-            console.log('cartStore.cartItems', cartStore.cartItems);
+            // console.log('cartStore.cartItems', cartStore.cartItems);
             const existingCartItem = cartStore.cartItems.find((item) => item.item_code === cartItem.item_code && item.unit_code === cartItem.unit_code && item.shelf_code === cartItem.shelf_code);
-            console.log('existingCartItem', existingCartItem);
+            // console.log('existingCartItem', existingCartItem);
             let finalQty = qty;
             if (existingCartItem) {
                 finalQty = parseInt(existingCartItem.qty) + qty;
             }
-            console.log('finalQty', finalQty);
+            // console.log('finalQty', finalQty);
             cartItems.push({ ...cartItem, qty: finalQty });
         }
     }
 
-    console.log('Adding to cart items:', cartItems);
+    // console.log('Adding to cart items:', cartItems);
 
     // ส่งรายการสินค้าทั้งหมดไป API ครั้งเดียว
     cartStore
@@ -544,8 +546,6 @@ function addToCart() {
             Object.keys(locationQuantities.value).forEach((loc) => {
                 locationQuantities.value[loc] = 0;
             });
-
-
 
             // toast.add({
             //     severity: 'success',
@@ -759,10 +759,15 @@ const dialogVisible = computed({
                         </div>
                     </div>
 
-                    <!-- แสดงข้อความสินค้าหมด -->
-                    <div v-if="isOutOfStock" class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 p-3 rounded-lg text-base mb-4 flex items-center">
+                    <!-- แสดงข้อความสินค้าหมด (ไม่แสดงขณะกำลังโหลด) -->
+                    <div v-if="isOutOfStock && !loadingStock" class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 p-3 rounded-lg text-base mb-4 flex items-center">
                         <i class="pi pi-exclamation-triangle mr-2"></i>
                         <span>สินค้าหมด ไม่สามารถสั่งซื้อได้</span>
+                    </div>
+                    <!-- Loading stock -->
+                    <div v-if="loadingStock" class="flex flex-col justify-center items-center p-6 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                        <ProgressSpinner style="width: 40px; height: 40px" />
+                        <span class="mt-3 text-gray-500 dark:text-gray-400">กำลังโหลดข้อมูลสต็อก...</span>
                     </div>
 
                     <!-- Price section -->
@@ -793,12 +798,8 @@ const dialogVisible = computed({
                     <div class="mb-4" v-if="isLoggedIn && !isOutOfStock">
                         <div class="text-base font-medium mb-2">{{ groupMain == 'G001' || groupMain == 'G003' ? 'เลือกจำนวนตามปียาง:' : 'เลือกจำนวน:' }}</div>
 
-                        <!-- Loading stock -->
-                        <div v-if="loadingStock" class="flex justify-center items-center p-4">
-                            <ProgressSpinner style="width: 30px; height: 30px" />
-                        </div>
                         <!-- Stock table -->
-                        <div v-else-if="stockLocations.length > 0" class="bg-gray-50 dark:bg-gray-800/30 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-gray-800/30 rounded-lg overflow-hidden">
                             <!-- Header -->
                             <div class="grid grid-cols-5 gap-2 p-3 bg-gray-100 dark:bg-gray-700 font-medium text-sm">
                                 <div class="text-center">คลัง</div>
@@ -808,22 +809,26 @@ const dialogVisible = computed({
                                 <div class="text-center">ราคา</div>
                             </div>
                             <!-- Rows -->
-                            <div v-for="(loc, index) in stockLocations" :key="loc.location" :class="['grid grid-cols-5 gap-2 p-3 items-center', index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50', !isLocationOrderable(loc) ? 'opacity-60' : '']">
+                            <div
+                                v-for="(loc, index) in stockLocations"
+                                :key="loc.location"
+                                :class="['grid grid-cols-5 gap-2 p-3 items-center', index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50', !isLocationOrderable(loc) ? 'opacity-60' : '']"
+                            >
                                 <!-- คลัง -->
                                 <div class="text-center">
                                     <span :class="['font-medium text-xs', isLocationOrderable(loc) ? 'text-green-600' : 'text-gray-500']">
                                         {{ loc.warehouse }}
                                     </span>
-                                    <div v-if="isLocationOrderable(loc)" class="text-xs text-green-500">
+                                    <!-- <div v-if="isLocationOrderable(loc)" class="text-xs text-green-500">
                                         <i class="pi pi-check-circle"></i>
-                                    </div>
+                                    </div> -->
                                 </div>
 
                                 <!-- คงเหลือ -->
                                 <div class="text-center">
                                     <span class="font-medium">{{ parseInt(loc.balance_qty) }}</span>
 
-                                    <div v-if="getLocationQuantityInCart(loc.location) > 0" class="text-xs text-blue-500">ในตะกร้า: {{ getLocationQuantityInCart(loc.location) }}</div>
+                                    <div v-if="getLocationQuantityInCart(loc.location, loc.warehouse) > 0" class="text-xs text-blue-500">ในตะกร้า: {{ getLocationQuantityInCart(loc.location, loc.warehouse) }}</div>
                                 </div>
 
                                 <!-- จำนวนสั่ง - แสดงเฉพาะ warehouse ที่เลือก -->
@@ -845,7 +850,15 @@ const dialogVisible = computed({
                                             @blur="validateLocationQuantity(loc.location)"
                                             @keydown="handleQuantityKeydown"
                                         />
-                                        <Button icon="pi pi-plus" text rounded size="small" @click="incrementLocationQuantity(loc.location)" :disabled="!canIncrementLocation(loc.location)" class="w-8 h-8 border border-gray-300 dark:border-gray-600" />
+                                        <Button
+                                            icon="pi pi-plus"
+                                            text
+                                            rounded
+                                            size="small"
+                                            @click="incrementLocationQuantity(loc.location)"
+                                            :disabled="!canIncrementLocation(loc.location)"
+                                            class="w-8 h-8 border border-gray-300 dark:border-gray-600"
+                                        />
                                     </template>
                                     <template v-else>
                                         <span class="text-gray-400 text-xs">-</span>
