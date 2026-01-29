@@ -44,5 +44,224 @@ export default {
                     reject(error);
                 });
         });
-    }
+    },
+
+    // ดึงรายการกลุ่มทั
+    getGroup(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getGroup?search=' + search)
+                .then((response) => {
+                    const groups = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...groups.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการกลุ่มย่อย
+    getGroupSub(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getGroupSub?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการกลุ่มย่อย2
+    getGroupSub2(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getGroupSub2?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการยี่ห้อ
+    getBrand(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getBrand?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการหมวดหมู่
+    getCategory(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getCategory?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการรูปทรง
+    getDesign(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getDesign?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+    // ดึงรายการรุ่น
+    getModel(search) {
+        return new Promise((resolve, reject) => {
+            // เรียกใช้งาน API จริง
+            apiClient
+                .get('/getModel?search=' + search)
+                .then((response) => {
+                    const items = response.data;
+
+                    const enhancedData = {
+                        data: [
+                            {
+                                code: 'all',
+                                name: 'ทั้งหมด'
+                            },
+                            ...items.data.map((item) => ({
+                                code: item.code,
+                                name: item.name
+                            }))
+                        ],
+                        success: true
+                    };
+                    resolve(enhancedData);
+                })
+                .catch((error) => {
+                    console.error('เกิดข้อผิดพลาดในการเรียก API:', error);
+                    reject(error);
+                });
+        });
+    },
+
+
 };

@@ -25,6 +25,15 @@ export default {
         // แปลงค่า _isstock: null หรือ '0' = 0 (แสดงทั้งหมด), '1' = 1 (แสดงเฉพาะที่มีคงเหลือ)
         const instock = instockValue === '1' ? 1 : 0;
 
+        // ตัวเลือกเสริม
+        const group = filters.group || '';
+        const groupsub = filters.groupsub || '';
+        const groupsub2 = filters.groupsub2 || '';
+        const brand = filters.brand || '';
+        const category2 = filters.category2 || '';
+        const design = filters.design || '';
+        const model = filters.model || '';
+
         return new Promise((resolve, reject) => {
             // เรียกใช้งาน API จริง
             apiClient
@@ -37,7 +46,15 @@ export default {
                         premium: 0, // สินค้าทั่วไป
                         limit: 50,
                         favorite: favorite,
-                        isstock: instock
+                        isstock: instock,
+                        // ตัวเลือกเสริม
+                        group: group,
+                        groupsub: groupsub,
+                        groupsub2: groupsub2,
+                        brand: brand,
+                        category2: category2,
+                        design: design,
+                        model: model
                     }
                 })
                 .then((response) => {

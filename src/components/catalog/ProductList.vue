@@ -1,9 +1,11 @@
 <script setup>
+import CategoryService from '@/services/CategoryService';
 import ProductService from '@/services/ProductService';
 import WarehouseService from '@/services/WarehouseList';
 import { useAuthenStore } from '@/stores/authen';
 import { useCartStore } from '@/stores/cartStore';
 import ProductDetailDialog from '@/views/pages/ProductDetailDialog.vue';
+import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -79,6 +81,181 @@ const observerTarget = ref(null); // element ที่จะถูกสัง�
 
 // เพิ่มตัวแปรสำหรับควบคุมการแสดงปุ่มกลับขึ้นด้านบน
 const showScrollTop = ref(false);
+
+// ตัวเลือกเสริมสำหรับการค้นหา
+const showAdvancedFilters = ref(false);
+const advancedFilters = ref({
+    group: null,
+    groupSub: null,
+    groupSub2: null,
+    brand: null,
+    category2: null,
+    design: null,
+    model: null
+});
+
+// ข้อมูล options สำหรับ AutoComplete
+const groupOptions = ref([]);
+const groupSubOptions = ref([]);
+const groupSub2Options = ref([]);
+const brandOptions = ref([]);
+const category2Options = ref([]);
+const designOptions = ref([]);
+const modelOptions = ref([]);
+
+// Filtered options สำหรับ AutoComplete
+const filteredGroupOptions = ref([]);
+const filteredGroupSubOptions = ref([]);
+const filteredGroupSub2Options = ref([]);
+const filteredBrandOptions = ref([]);
+const filteredCategory2Options = ref([]);
+const filteredDesignOptions = ref([]);
+const filteredModelOptions = ref([]);
+
+// ฟังก์ชันดึงข้อมูล filter options
+async function fetchGroupOptions(search = '') {
+    try {
+        const result = await CategoryService.getGroup(search);
+        groupOptions.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching group options:', error);
+    }
+}
+
+async function fetchGroupSubOptions(search = '') {
+    try {
+        const result = await CategoryService.getGroupSub(search);
+        groupSubOptions.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching groupSub options:', error);
+    }
+}
+
+async function fetchGroupSub2Options(search = '') {
+    try {
+        const result = await CategoryService.getGroupSub2(search);
+        groupSub2Options.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching groupSub2 options:', error);
+    }
+}
+
+async function fetchBrandOptions(search = '') {
+    try {
+        const result = await CategoryService.getBrand(search);
+        brandOptions.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching brand options:', error);
+    }
+}
+
+async function fetchCategory2Options(search = '') {
+    try {
+        const result = await CategoryService.getCategory(search);
+        category2Options.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching category options:', error);
+    }
+}
+
+async function fetchDesignOptions(search = '') {
+    try {
+        const result = await CategoryService.getDesign(search);
+        designOptions.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching design options:', error);
+    }
+}
+
+async function fetchModelOptions(search = '') {
+    try {
+        const result = await CategoryService.getModel(search);
+        modelOptions.value = result.data || [];
+    } catch (error) {
+        console.error('Error fetching model options:', error);
+    }
+}
+
+// ฟังก์ชัน search สำหรับ AutoComplete
+function searchGroup(event) {
+    const query = event.query.toLowerCase();
+    filteredGroupOptions.value = groupOptions.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchGroupSub(event) {
+    const query = event.query.toLowerCase();
+    filteredGroupSubOptions.value = groupSubOptions.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchGroupSub2(event) {
+    const query = event.query.toLowerCase();
+    filteredGroupSub2Options.value = groupSub2Options.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchBrand(event) {
+    const query = event.query.toLowerCase();
+    filteredBrandOptions.value = brandOptions.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchCategory2(event) {
+    const query = event.query.toLowerCase();
+    filteredCategory2Options.value = category2Options.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchDesign(event) {
+    const query = event.query.toLowerCase();
+    filteredDesignOptions.value = designOptions.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+function searchModel(event) {
+    const query = event.query.toLowerCase();
+    filteredModelOptions.value = modelOptions.value.filter((item) => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
+}
+
+// โหลดข้อมูล filter options ทั้งหมด
+async function loadAllFilterOptions() {
+    await Promise.all([fetchGroupOptions(), fetchGroupSubOptions(), fetchGroupSub2Options(), fetchBrandOptions(), fetchCategory2Options(), fetchDesignOptions(), fetchModelOptions()]);
+}
+
+// Toggle แสดง/ซ่อน ตัวเลือกเสริม
+function toggleAdvancedFilters() {
+    showAdvancedFilters.value = !showAdvancedFilters.value;
+    // โหลดข้อมูล filter options เมื่อเปิดครั้งแรก
+    if (showAdvancedFilters.value && groupOptions.value.length === 0) {
+        loadAllFilterOptions();
+    }
+}
+
+// ล้างตัวเลือกเสริมทั้งหมด
+function clearAdvancedFilters() {
+    advancedFilters.value = {
+        group: null,
+        groupSub: null,
+        groupSub2: null,
+        brand: null,
+        category2: null,
+        design: null,
+        model: null
+    };
+    filterProducts();
+}
+
+// ตรวจสอบว่ามีตัวเลือกเสริมที่เลือกอยู่หรือไม่
+const hasActiveAdvancedFilters = computed(() => {
+    return Object.values(advancedFilters.value).some((v) => v && v.code && v.code !== 'all');
+});
+
+// นับจำนวนตัวเลือกเสริมที่เลือก
+const activeAdvancedFiltersCount = computed(() => {
+    return Object.values(advancedFilters.value).filter((v) => v && v.code && v.code !== 'all').length;
+});
+
+// ฟังก์ชันแสดง label สำหรับ AutoComplete (code ~ name)
+function formatOptionLabel(option) {
+    if (!option) return '';
+    if (option.code === 'all') return option.name;
+    return `${option.code} ~ ${option.name}`;
+}
 
 onMounted(() => {
     // ตรวจสอบค่า favorite จาก query parameters
@@ -167,7 +344,15 @@ async function loadProducts() {
         const filters = {
             category: props.selectedCategory !== 'all' ? props.selectedCategory : '',
             search: searchQuery.value,
-            favorite: favoriteFilterActive.value ? 1 : 0
+            favorite: favoriteFilterActive.value ? 1 : 0,
+            // ตัวเลือกเสริม
+            group: advancedFilters.value.group?.code !== 'all' ? advancedFilters.value.group?.code : '',
+            groupsub: advancedFilters.value.groupSub?.code !== 'all' ? advancedFilters.value.groupSub?.code : '',
+            groupsub2: advancedFilters.value.groupSub2?.code !== 'all' ? advancedFilters.value.groupSub2?.code : '',
+            brand: advancedFilters.value.brand?.code !== 'all' ? advancedFilters.value.brand?.code : '',
+            category2: advancedFilters.value.category2?.code !== 'all' ? advancedFilters.value.category2?.code : '',
+            design: advancedFilters.value.design?.code !== 'all' ? advancedFilters.value.design?.code : '',
+            model: advancedFilters.value.model?.code !== 'all' ? advancedFilters.value.model?.code : ''
         };
 
         const result = await ProductService.getProducts(filters, 0);
@@ -215,7 +400,15 @@ async function loadMoreProducts() {
         const filters = {
             category: props.selectedCategory !== 'all' ? props.selectedCategory : '',
             search: searchQuery.value,
-            favorite: favoriteFilterActive.value ? 1 : 0
+            favorite: favoriteFilterActive.value ? 1 : 0,
+            // ตัวเลือกเสริม
+            group: advancedFilters.value.group?.code !== 'all' ? advancedFilters.value.group?.code : '',
+            groupsub: advancedFilters.value.groupSub?.code !== 'all' ? advancedFilters.value.groupSub?.code : '',
+            groupsub2: advancedFilters.value.groupSub2?.code !== 'all' ? advancedFilters.value.groupSub2?.code : '',
+            brand: advancedFilters.value.brand?.code !== 'all' ? advancedFilters.value.brand?.code : '',
+            category2: advancedFilters.value.category2?.code !== 'all' ? advancedFilters.value.category2?.code : '',
+            design: advancedFilters.value.design?.code !== 'all' ? advancedFilters.value.design?.code : '',
+            model: advancedFilters.value.model?.code !== 'all' ? advancedFilters.value.model?.code : ''
         };
 
         const nextPage = pagination.value.page + 1;
@@ -548,12 +741,70 @@ const shouldShowTireYearSelector = computed(() => {
 
         <!-- ช่องค้นหา -->
         <div class="px-3 py-2 sm:py-3 border-t border-gray-100 dark:border-gray-700">
-            <IconField iconPosition="left" class="w-full">
-                <InputText v-model="searchQuery" type="text" placeholder="ค้นหาสินค้า" class="w-full" />
-                <InputIcon v-if="!isSearching && !searchQuery" class="pi pi-search search-spinner" />
-                <InputIcon v-else-if="!isSearching && searchQuery" class="pi pi-times search-spinner cursor-pointer" @click="clearSearch" />
-                <InputIcon v-else class="pi pi-spin pi-spinner search-spinner" />
-            </IconField>
+            <div class="flex gap-2">
+                <IconField iconPosition="left" class="flex-1">
+                    <InputText v-model="searchQuery" type="text" placeholder="ค้นหาสินค้า" class="w-full" />
+                    <InputIcon v-if="!isSearching && !searchQuery" class="pi pi-search search-spinner" />
+                    <InputIcon v-else-if="!isSearching && searchQuery" class="pi pi-times search-spinner cursor-pointer" @click="clearSearch" />
+                    <InputIcon v-else class="pi pi-spin pi-spinner search-spinner" />
+                </IconField>
+                <Button :icon="showAdvancedFilters ? 'pi pi-chevron-up' : 'pi pi-sliders-h'" :class="{ 'p-button-outlined': !hasActiveAdvancedFilters, 'p-button-info': hasActiveAdvancedFilters }" @click="toggleAdvancedFilters" v-tooltip.top="'ตัวเลือกเสริม'">
+                    <!-- <span v-if="activeAdvancedFiltersCount > 0" class="ml-1 bg-white text-primary rounded-full px-1.5 text-xs font-bold">{{ activeAdvancedFiltersCount }}</span> -->
+                </Button>
+            </div>
+        </div>
+
+        <!-- ตัวเลือกเสริม -->
+        <div v-if="showAdvancedFilters" class="px-3 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <!-- กลุ่มหลัก -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">กลุ่มหลัก</label>
+                    <AutoComplete v-model="advancedFilters.group" :suggestions="filteredGroupOptions" @complete="searchGroup" :optionLabel="formatOptionLabel" placeholder="เลือกกลุ่มหลัก" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- กลุ่มย่อย -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">กลุ่มย่อย</label>
+                    <AutoComplete v-model="advancedFilters.groupSub" :suggestions="filteredGroupSubOptions" @complete="searchGroupSub" :optionLabel="formatOptionLabel" placeholder="เลือกกลุ่มย่อย" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- กลุ่มย่อย2 -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">กลุ่มย่อย 2</label>
+                    <AutoComplete v-model="advancedFilters.groupSub2" :suggestions="filteredGroupSub2Options" @complete="searchGroupSub2" :optionLabel="formatOptionLabel" placeholder="เลือกกลุ่มย่อย 2" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- ยี่ห้อ -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">ยี่ห้อ</label>
+                    <AutoComplete v-model="advancedFilters.brand" :suggestions="filteredBrandOptions" @complete="searchBrand" :optionLabel="formatOptionLabel" placeholder="เลือกยี่ห้อ" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- หมวด -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">หมวด</label>
+                    <AutoComplete v-model="advancedFilters.category2" :suggestions="filteredCategory2Options" @complete="searchCategory2" :optionLabel="formatOptionLabel" placeholder="เลือกหมวด" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- รูปทรง -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">รูปทรง</label>
+                    <AutoComplete v-model="advancedFilters.design" :suggestions="filteredDesignOptions" @complete="searchDesign" :optionLabel="formatOptionLabel" placeholder="เลือกรูปทรง" class="w-full" dropdown forceSelection />
+                </div>
+
+                <!-- รุ่น -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">รุ่น</label>
+                    <AutoComplete v-model="advancedFilters.model" :suggestions="filteredModelOptions" @complete="searchModel" :optionLabel="formatOptionLabel" placeholder="เลือกรุ่น" class="w-full" dropdown forceSelection />
+                </div>
+            </div>
+
+            <!-- ปุ่มค้นหาและล้าง -->
+            <div class="flex justify-end gap-2 mt-3">
+                <Button label="ล้างตัวเลือก" icon="pi pi-times" severity="secondary" outlined size="small" @click="clearAdvancedFilters" :disabled="!hasActiveAdvancedFilters" />
+                <Button label="ค้นหา" icon="pi pi-search" size="small" @click="filterProducts" />
+            </div>
         </div>
 
         <!-- เนื้อหาหลัก -->
