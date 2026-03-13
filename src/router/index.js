@@ -59,8 +59,7 @@ const router = createRouter({
                         requiresAuth: true,
                         title: 'สถานะการจัดส่ง'
                     }
-                },
-                // ประวัติการรับเงินล่วงหน้า
+                },                // ประวัติการรับเงินล่วงหน้า
                 {
                     path: 'advance-payment-history',
                     name: 'advance-payment-history',
@@ -68,6 +67,16 @@ const router = createRouter({
                     meta: {
                         requiresAuth: true,
                         title: 'ประวัติการรับเงินล่วงหน้า'
+                    }
+                },
+                // รายการสินค้า (ยอดคงเหลือ)
+                {
+                    path: 'balance-list',
+                    name: 'balance-list',
+                    component: () => import('@/views/pages/BalanceList.vue'),
+                    meta: {
+                        requiresAuth: false,
+                        title: 'รายการสินค้า'
                     }
                 }
             ]

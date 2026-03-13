@@ -42,7 +42,7 @@ const isLoadingWarehouses = ref(false);
 const warehouseOptions = ref([]);
 
 // เพิ่มส่วนสำหรับประเภทการขาย
-const saleType = ref(1); // ค่าเริ่มต้นเป็นเงินสด (1)
+const saleType = ref(2); // ค่าเริ่มต้นเป็นเงินสด (2)
 
 // เพิ่มส่วนสำหรับแสดงหน้าเลือกทั้งหมดรวมกัน
 const showSelectionScreen = ref(false);
@@ -575,7 +575,7 @@ const logout = () => {
     selectedCustomer.value = null;
     selectedEmployee.value = null;
     selectedWarehouse.value = null;
-    saleType.value = 1; // รีเซ็ตเป็นเงินสด
+    saleType.value = 2; // รีเซ็ตเป็นเงินสด
 
     // ไม่ลบข้อมูลที่จดจำไว้ เพื่อให้สามารถล็อกอินได้ง่ายในครั้งถัดไป
     // เฉพาะดึงข้อมูลที่บันทึกไว้มาใส่ในฟอร์ม
@@ -958,7 +958,7 @@ const logout = () => {
                             </div>
 
                             <!-- 3. ประเภทการขาย (RadioButton) -->
-                            <div class="mb-4 sm:mb-6">
+                            <!-- <div class="mb-4 sm:mb-6">
                                 <label class="block text-surface-900 dark:text-surface-0 font-medium mb-2 sm:mb-3"> <i class="pi pi-credit-card mr-2"></i>ประเภทการขาย </label>
                                 <div class="flex flex-column gap-2">
                                     <div class="flex align-items-center">
@@ -970,7 +970,7 @@ const logout = () => {
                                         <label for="credit" class="ml-2 text-surface-900 dark:text-surface-0">เงินเชื่อ</label>
                                     </div>
                                 </div>
-                            </div>
+                            </div> -->
 
                             <!-- ปุ่มยืนยัน -->
                             <div class="flex flex-column sm:flex-row gap-2 mb-4">

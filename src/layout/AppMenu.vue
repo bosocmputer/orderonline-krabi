@@ -72,9 +72,7 @@ const model = computed(() => {
     //             }
     //         ]
     //     });
-    // }
-
-    // 2. เมนูหลักร้านค้า (แสดงเสมอ)
+    // }    // 2. เมนูหลักร้านค้า (แสดงเสมอ)
     menuItems.push({
         label: 'ร้านค้า',
         icon: 'pi pi-fw pi-shopping-bag',
@@ -83,6 +81,11 @@ const model = computed(() => {
                 label: 'สินค้าทั้งหมด',
                 icon: 'pi pi-fw pi-shopping-bag',
                 to: '/'
+            },
+            {
+                label: 'รายการสินค้า',
+                icon: 'pi pi-fw pi-list',
+                to: '/balance-list'
             },
             cartMenuItem.value
         ]
