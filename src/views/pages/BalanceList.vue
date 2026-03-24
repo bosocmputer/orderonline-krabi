@@ -17,6 +17,26 @@ const pageSize = ref(30);
 const sortOrder = ref('asc');
 const sortColumn = ref('');
 
+// Dynamic search fields - กดเพิ่ม/ลดช่องค้นหาได้
+let searchFieldIdCounter = 1;
+const searchFields = ref([{ id: searchFieldIdCounter++, value: '' }]);
+
+function addSearchField() {
+    searchFields.value.push({ id: searchFieldIdCounter++, value: '' });
+}
+
+function removeSearchField(id) {
+    if (searchFields.value.length <= 1) return;
+    searchFields.value = searchFields.value.filter((f) => f.id !== id);
+}
+
+function getSearchQuery() {
+    return searchFields.value
+        .map((f) => f.value.trim())
+        .filter((v) => v !== '')
+        .join('|');
+}
+
 const filters = reactive({
     search: '',
     warehouse: [],
@@ -239,6 +259,7 @@ function onSort(event) {
 }
 
 function handleSearch() {
+    filters.search = getSearchQuery();
     currentPage.value = 0;
     loadBalanceList();
 }
@@ -250,6 +271,7 @@ function onSearchKeyup(e) {
 }
 
 function clearFilters() {
+    searchFields.value = [{ id: searchFieldIdCounter++, value: '' }];
     filters.search = '';
     filters.warehouse = [];
     filters.shelfFrom = [];
@@ -318,11 +340,40 @@ onMounted(() => {
         <div class="card filter-section">
             <h3 class="filter-title"><i class="pi pi-filter"></i> เงื่อนไขการค้นหา</h3>
             <div class="filter-grid">
-                <!-- ค้นหาสินค้า -->
-                <div class="filter-item filter-item-wide">
-                    <label>ค้นหาสินค้า</label>
-                    <div class="p-inputgroup">
-                        <InputText v-model="filters.search" placeholder="รหัสสินค้า / ชื่อสินค้า" @keyup="onSearchKeyup" class="w-full" />
+                <!-- ค้นหาสินค้า (dynamic fields) -->
+                <div class="filter-item filter-item-wide search-block">
+                    <div class="search-block-header">
+                        <label><i class="pi pi-search" style="font-size:0.8rem"></i> ค้นหาสินค้า</label>
+                        <span class="search-or-hint" v-if="searchFields.length > 1">แต่ละช่องค้นหาแบบ OR</span>
+                    </div>
+                    <div v-for="(field, index) in searchFields" :key="field.id" class="search-field-row">
+                        <span class="search-field-badge">{{ index + 1 }}</span>
+                        <InputText
+                            v-model="field.value"
+                            :placeholder="index === 0 ? 'รหัสสินค้า / ชื่อสินค้า' : 'เงื่อนไขเพิ่มเติม...'"
+                            @keyup="onSearchKeyup"
+                            class="search-input"
+                        />
+                        <Button
+                            v-if="searchFields.length > 1"
+                            icon="pi pi-times"
+                            severity="danger"
+                            text
+                            rounded
+                            @click="removeSearchField(field.id)"
+                            v-tooltip.top="'ลบช่องนี้'"
+                            class="search-btn-remove"
+                        />
+                        <Button
+                            v-if="index === searchFields.length - 1"
+                            icon="pi pi-plus"
+                            severity="success"
+                            text
+                            rounded
+                            @click="addSearchField"
+                            v-tooltip.top="'เพิ่มเงื่อนไข'"
+                            class="search-btn-add"
+                        />
                     </div>
                 </div>
 
@@ -669,6 +720,68 @@ onMounted(() => {
 }
 .filter-item-wide {
     grid-column: span 2;
+}
+
+/* ===== Search Block ===== */
+.search-block {
+    background: var(--surface-ground, #f8f9fa);
+    border: 1px solid var(--surface-border, #e5e7eb);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+.search-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+.search-block-header label {
+    margin-bottom: 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.search-or-hint {
+    font-size: 0.75rem;
+    color: var(--primary-color, #3b82f6);
+    background: var(--blue-50, #eff6ff);
+    border: 1px solid var(--blue-200, #bfdbfe);
+    border-radius: 20px;
+    padding: 1px 10px;
+    font-weight: 500;
+}
+.search-field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+}
+.search-field-row:last-child {
+    margin-bottom: 0;
+}
+.search-field-badge {
+    flex-shrink: 0;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    background: var(--primary-color, #3b82f6);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.search-input {
+    flex: 1;
+    min-width: 0;
+}
+.search-btn-remove,
+.search-btn-add {
+    flex-shrink: 0;
+    width: 2rem !important;
+    height: 2rem !important;
+    padding: 0 !important;
 }
 .filter-actions {
     display: flex;
