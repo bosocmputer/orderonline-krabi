@@ -232,9 +232,10 @@ onMounted(() => {
         // อัปเดต localStorage
         localStorage.setItem('_isstock', newValue ? '1' : '0');
 
-        // รีเฟรชข้อมูลสินค้า
+        // รีเฟรชข้อมูลสินค้า — อยู่หน้าไหนก็ refresh หน้านั้น
+        const currentPath = router.currentRoute.value.path;
         router.push({
-            path: '/',
+            path: currentPath,
             query: {
                 ...router.currentRoute.value.query,
                 timestamp: Date.now()

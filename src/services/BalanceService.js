@@ -53,7 +53,21 @@ export default {
                 sort: params.sort || 'asc',
                 sort_col: params.sortCol || '',
                 offset: params.offset || 0,
-                limit: params.limit || 30
+                limit: params.limit || 30,
+                isstock: params.isstock || '0'
+            }
+        });
+    },
+
+    /**
+     * Lazy load stock แยกปีนี้/ปีอื่น — เรียก function ครั้งเดียวด้วย item_codes ทั้งหมด
+     */
+    getBalanceStockBatch(itemCodes, warehouse = '', shelfList = '') {
+        return apiClient.get('/getBalanceStockBatch', {
+            params: {
+                item_codes: itemCodes,
+                warehouse: warehouse,
+                shelf_list: shelfList
             }
         });
     },

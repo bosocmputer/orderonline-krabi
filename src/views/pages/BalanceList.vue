@@ -1,14 +1,26 @@
 <script setup>
 import BalanceService from '@/services/BalanceService';
-import { computed, onMounted, reactive, ref } from 'vue';
+import ProductService from '@/services/ProductService';
+import { useCartStore } from '@/stores/cartStore';
+import Galleria from 'primevue/galleria';
+import { useToast } from 'primevue/usetoast';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 const loading = ref(false);
-const priceLoading = ref(false);
+const stockLoading = ref(false);
 const balanceData = ref([]);
 const expandedRows = ref({});
 const expandedDetails = ref({});
 const expandedLoading = ref({});
 const expandedPriceLoading = ref({});
+const expandedImages = ref({});
+const expandedImagesLoading = ref({});
+
+const cartStore = useCartStore();
+const toast = useToast();
+const locationQuantities = ref({});  // key = itemCode_warehouse_location
+const addingToCart = ref({});        // key = itemCode
 
 const totalRecords = ref(0);
 const currentPage = ref(0);
@@ -70,15 +82,17 @@ const filterLoading = reactive({
     format: false
 });
 
+function parsePrice(val) {
+    if (val === null || val === undefined || val === '') return '-';
+    const num = parseFloat(String(val).replace(/,/g, ''));
+    if (isNaN(num)) return '-';
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function qtyShow(qty) {
     const num = parseFloat(String(qty).replace(/,/g, ''));
-    if (num <= 0) return '0';
-    if (num <= 4) return String(Math.floor(num));
-    if (num <= 12) return '4+';
-    if (num <= 20) return '12+';
-    if (num <= 40) return '20+';
-    if (num <= 100) return '40+';
-    return '100+';
+    if (isNaN(num)) return '0';
+    return String(Math.floor(num));
 }
 
 const totalBalanceQty = computed(() => {
@@ -90,7 +104,6 @@ const totalBalanceQty = computed(() => {
 
 async function loadBalanceList() {
     loading.value = true;
-    priceLoading.value = false;
     expandedRows.value = {};
     expandedDetails.value = {};
     try {
@@ -108,23 +121,19 @@ async function loadBalanceList() {
             sort: sortOrder.value,
             sortCol: sortColumn.value,
             offset: currentPage.value * pageSize.value,
-            limit: pageSize.value
+            limit: pageSize.value,
+            isstock: localStorage.getItem('_isstock') || '0'
         };
         const response = await BalanceService.getBalanceListLite(params);
         if (response.data && response.data.success) {
             balanceData.value = (response.data.data || []).map((item) => ({
                 ...item,
-                price: '',
-                balance_qty: '',
-                year_weak: '',
-                update_date: '',
-                _priceLoaded: false
+                _stockLoaded: false
             }));
             if (response.data.pagination) {
                 totalRecords.value = response.data.pagination.total || 0;
             }
-            // lazy load ราคา/stock หลังได้ list แล้ว
-            lazyLoadPriceBatch();
+            lazyLoadStockBatch();
         }
     } catch (err) {
         console.error('Error loading balance list:', err);
@@ -135,44 +144,44 @@ async function loadBalanceList() {
     }
 }
 
-async function lazyLoadPriceBatch() {
-    const items = balanceData.value.filter((r) => !r._priceLoaded);
+async function lazyLoadStockBatch() {
+    const items = balanceData.value.filter((r) => !r._stockLoaded);
     if (items.length === 0) return;
 
-    priceLoading.value = true;
+    stockLoading.value = true;
     const itemCodes = items.map((r) => r.item_code).join(',');
-    const custCode = localStorage.getItem('_userCode') || '';
     const warehouse = filters.warehouse.join(',');
-    const shelfList = items[0]?.shelf_list || '';
+    const shelfList = filters.shelfFrom.length > 0 ? filters.shelfFrom[0] : '';
 
     try {
-        const response = await BalanceService.getBalanceItemPriceBatch(itemCodes, custCode, warehouse, shelfList);
+        const response = await BalanceService.getBalanceStockBatch(itemCodes, warehouse, shelfList);
         if (response.data && response.data.success && response.data.data) {
-            const priceMap = {};
-            for (const p of response.data.data) {
-                priceMap[p.item_code] = p;
+            const stockMap = {};
+            for (const s of response.data.data) {
+                stockMap[s.item_code] = s;
             }
-            balanceData.value = balanceData.value.map((row) => {
-                const pd = priceMap[row.item_code];
-                if (pd) {
+            let mapped = balanceData.value.map((row) => {
+                const sd = stockMap[row.item_code];
+                if (sd) {
                     return {
                         ...row,
-                        price: pd.price || '0',
-                        balance_qty: pd.balance_qty || '0',
-                        year_weak: pd.year_weak || '',
-                        update_date: pd.update_date || '',
-                        _priceLoaded: true
+                        balance_qty_current_year: sd.balance_qty_current_year || '0',
+                        balance_qty_other_year: sd.balance_qty_other_year || '0',
+                        _stockLoaded: true
                     };
                 }
-                return { ...row, _priceLoaded: true };
+                return { ...row, balance_qty_current_year: '0', balance_qty_other_year: '0', _stockLoaded: true };
             });
+            if (localStorage.getItem('_isstock') === '1') {
+                mapped = mapped.filter((row) => parseFloat(row.balance_qty_current_year) > 0 || parseFloat(row.balance_qty_other_year) > 0);
+            }
+            balanceData.value = mapped;
         }
     } catch (err) {
-        console.error('Error loading price batch:', err);
-        // mark all as loaded to stop showing spinners
-        balanceData.value = balanceData.value.map((row) => ({ ...row, _priceLoaded: true }));
+        console.error('Error loading stock batch:', err);
+        balanceData.value = balanceData.value.map((row) => ({ ...row, _stockLoaded: true }));
     } finally {
-        priceLoading.value = false;
+        stockLoading.value = false;
     }
 }
 
@@ -235,8 +244,108 @@ async function lazyLoadDetailPrices(itemCode) {
     }
 }
 
+async function loadImages(itemCode) {
+    if (expandedImages.value[itemCode] !== undefined) return;
+    expandedImagesLoading.value[itemCode] = true;
+    try {
+        const imageList = await ProductService.getImageList(itemCode);
+        if (imageList && imageList.length > 0) {
+            expandedImages.value[itemCode] = imageList.map((img) => ({
+                itemImageSrc: ProductService.getProductImageByGuid(img.guid_code),
+                thumbnailImageSrc: ProductService.getProductImageByGuid(img.guid_code),
+                alt: itemCode
+            }));
+        } else {
+            expandedImages.value[itemCode] = [{ itemImageSrc: ProductService.getPlaceholderImage(), thumbnailImageSrc: ProductService.getPlaceholderImage(), alt: itemCode }];
+        }
+    } catch {
+        expandedImages.value[itemCode] = [{ itemImageSrc: ProductService.getPlaceholderImage(), thumbnailImageSrc: ProductService.getPlaceholderImage(), alt: itemCode }];
+    } finally {
+        expandedImagesLoading.value[itemCode] = false;
+    }
+}
+
 function onRowExpand(event) {
     loadBalanceDetail(event.data);
+    loadImages(event.data.item_code);
+}
+
+function getQtyKey(itemCode, warehouse, location) {
+    return `${itemCode}_${warehouse}_${location}`;
+}
+
+function getQty(itemCode, warehouse, location) {
+    return locationQuantities.value[getQtyKey(itemCode, warehouse, location)] || 0;
+}
+
+function setQty(itemCode, warehouse, location, val) {
+    const num = parseInt(val);
+    locationQuantities.value[getQtyKey(itemCode, warehouse, location)] = isNaN(num) || num < 0 ? 0 : num;
+}
+
+function incrementQty(itemCode, warehouse, location) {
+    const key = getQtyKey(itemCode, warehouse, location);
+    locationQuantities.value[key] = (locationQuantities.value[key] || 0) + 1;
+}
+
+function decrementQty(itemCode, warehouse, location) {
+    const key = getQtyKey(itemCode, warehouse, location);
+    const cur = locationQuantities.value[key] || 0;
+    locationQuantities.value[key] = cur > 0 ? cur - 1 : 0;
+}
+
+function totalOrderQty(itemCode, details) {
+    if (!details) return 0;
+    return details.reduce((sum, d) => sum + getQty(itemCode, d.warehouse, d.location), 0);
+}
+
+async function addToCartFromDetail(data) {
+    const itemCode = data.item_code;
+    const details = expandedDetails.value[itemCode];
+    if (!details) return;
+
+    const cartItems = [];
+    for (const d of details) {
+        const qty = getQty(itemCode, d.warehouse, d.location);
+        if (qty <= 0) continue;
+        const existing = cartStore.cartItems.find(
+            (i) => i.item_code === itemCode && i.unit_code === d.unit_code && i.shelf_code === d.location
+        );
+        const finalQty = existing ? parseInt(existing.qty) + qty : qty;
+        cartItems.push({
+            id: `${itemCode}_${d.unit_code}_${d.location}`,
+            item_code: itemCode,
+            code: itemCode,
+            name: data.item_name,
+            item_name: data.item_name,
+            price: parseFloat(d.price || 0),
+            image: ProductService.getProductImageUrl(itemCode),
+            category: '',
+            unit: d.unit_code,
+            unit_code: d.unit_code,
+            barcode: '',
+            wh_code: d.warehouse,
+            shelf_code: d.location,
+            location_name: d.location,
+            qty: finalQty
+        });
+    }
+
+    if (cartItems.length === 0) return;
+
+    addingToCart.value[itemCode] = true;
+    try {
+        await cartStore.addMultipleToCart(cartItems);
+        // reset qty หลังสำเร็จ
+        for (const d of details) {
+            locationQuantities.value[getQtyKey(itemCode, d.warehouse, d.location)] = 0;
+        }
+        toast.add({ severity: 'success', summary: 'เพิ่มสินค้าแล้ว', detail: `เพิ่ม ${data.item_name} ลงตะกร้าแล้ว`, life: 3000 });
+    } catch {
+        toast.add({ severity: 'error', summary: 'เกิดข้อผิดพลาด', detail: 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้', life: 3000 });
+    } finally {
+        addingToCart.value[itemCode] = false;
+    }
 }
 
 function onPage(event) {
@@ -250,7 +359,9 @@ function onSort(event) {
     const order = event.sortOrder === 1 ? 'asc' : 'desc';
     const sortMap = {
         item_code: '',
-        year_weak: 'year_weak'
+        price_0: 'price_0',
+        price_9: 'price_9',
+        description: 'description'
     };
     sortColumn.value = sortMap[field] !== undefined ? sortMap[field] : '';
     sortOrder.value = order;
@@ -317,6 +428,11 @@ async function loadFilterOptions(serviceFn, targetRef, loadingKey) {
         filterLoading[loadingKey] = false;
     }
 }
+
+const route = useRoute();
+watch(() => route.query.timestamp, () => {
+    loadBalanceList();
+});
 
 onMounted(() => {
     loadFilterOptions(BalanceService.getSearchWarehouseList, warehouseOptions, 'warehouse');
@@ -578,41 +694,51 @@ onMounted(() => {
                 </template>
 
                 <template #header>
-                    <ProgressBar v-if="priceLoading" mode="indeterminate" style="height: 4px" />
+                    <ProgressBar v-if="stockLoading" mode="indeterminate" style="height: 4px" />
                 </template>
 
                 <Column expander style="width: 3rem" />
 
                 <Column field="item_code" header="รหัสสินค้า ~ ชื่อสินค้า" sortable style="min-width: 280px">
                     <template #body="{ data }">
-                        <span class="font-bold">{{ data.item_code }}</span>
-                        <span style="color: #888"> ~ {{ data.item_name }}</span>
-                    </template>
-                </Column>
-                <Column field="price" header="ราคา" style="min-width: 120px; text-align: right">
-                    <template #body="{ data }">
-                        <i v-if="!data._priceLoaded" class="pi pi-spin pi-spinner" style="font-size: 1rem"></i>
-                        <span v-else>{{
-                            Number(data.price || 0).toLocaleString('en-US', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            })
-                        }}</span>
+                        <div class="font-bold">{{ data.item_code }}</div>
+                        <div style="color: #555; font-size: 0.88rem">{{ data.item_name }}</div>
                     </template>
                 </Column>
 
-                <Column field="balance_qty" header="จำนวน" style="min-width: 120px; text-align: center">
+                <Column field="price_0" header="ราคาขาย 0%" sortable style="min-width: 120px; text-align: right">
                     <template #body="{ data }">
-                        <i v-if="!data._priceLoaded" class="pi pi-spin pi-spinner" style="font-size: 1rem"></i>
-                        <Tag v-else :severity="qtyShow(data.balance_qty) === '0' ? 'danger' : 'success'" :value="qtyShow(data.balance_qty) + ' (' + data.unit_code + ')'" />
+                        <span>{{ parsePrice(data.price_0) }}</span>
                     </template>
                 </Column>
 
-                <Column field="year_weak" header="ที่เก็บ" sortable style="min-width: 120px">
+                <Column field="price_9" header="ราคาขายสด" sortable style="min-width: 120px; text-align: right">
                     <template #body="{ data }">
-                        {{ data.year_weak || '-' }}
+                        <span>{{ parsePrice(data.price_9) }}</span>
                     </template>
                 </Column>
+
+                <Column field="balance_qty_current_year" header="สต๊อกปีนี้" style="min-width: 110px; text-align: center">
+                    <template #body="{ data }">
+                        <Tag :severity="parseFloat(data.balance_qty_current_year) <= 0 ? 'danger' : 'success'"
+                            :value="qtyShow(data.balance_qty_current_year) + ' (' + data.unit_code + ')'" />
+                    </template>
+                </Column>
+
+                <Column field="balance_qty_other_year" header="สต๊อกปีอื่น" style="min-width: 110px; text-align: center">
+                    <template #body="{ data }">
+                        <Tag severity="warning"
+                            :value="qtyShow(data.balance_qty_other_year) + ' (' + data.unit_code + ')'" />
+                    </template>
+                </Column>
+
+                <Column field="description" header="โปรโมชั่น" sortable style="min-width: 180px">
+                    <template #body="{ data }">
+                        <span v-if="!data.description || data.description.trim() === ''" style="color: #ccc">-</span>
+                        <div v-else class="promo-text" v-html="data.description"></div>
+                    </template>
+                </Column>
+
 
                 <template #footer>
                     <div class="footer-summary">
@@ -624,10 +750,10 @@ onMounted(() => {
                 <!-- Row Expansion -->
                 <template #expansion="{ data }">
                     <div class="expansion-content">
-                        <h4>
-                            <i class="pi pi-warehouse"></i> รายละเอียดคลัง/ที่เก็บ -
-                            {{ data.item_code }}
-                        </h4>                        <ProgressBar v-if="expandedLoading[data.item_code]" mode="indeterminate" style="height: 4px" />
+                        <div class="expansion-header">
+                            <h4><i class="pi pi-warehouse"></i> รายละเอียดคลัง/ที่เก็บ - {{ data.item_code }}</h4>
+                        </div>
+                        <div v-if="data.description && data.description.trim() !== ''" class="expansion-promo" v-html="data.description"></div>                        <ProgressBar v-if="expandedLoading[data.item_code]" mode="indeterminate" style="height: 4px" />
 
                         <template v-else-if="expandedDetails[data.item_code] && expandedDetails[data.item_code].length > 0">
                             <ProgressBar v-if="expandedPriceLoading[data.item_code]" mode="indeterminate" style="height: 3px; margin-bottom: 0.5rem" />
@@ -664,10 +790,72 @@ onMounted(() => {
                                     {{ (parseFloat(detail.balance_qty) - parseFloat(detail.overdue || 0)).toFixed(0) }}
                                 </template>
                             </Column>
+                            <Column header="สั่ง" style="min-width: 140px">
+                                <template #body="{ data: detail }">
+                                    <div class="qty-input-row">
+                                        <Button icon="pi pi-minus" text rounded size="small"
+                                            :disabled="getQty(data.item_code, detail.warehouse, detail.location) <= 0"
+                                            @click="decrementQty(data.item_code, detail.warehouse, detail.location)"
+                                            class="qty-btn" />
+                                        <input type="text"
+                                            :value="getQty(data.item_code, detail.warehouse, detail.location)"
+                                            @change="setQty(data.item_code, detail.warehouse, detail.location, $event.target.value)"
+                                            class="qty-input" />
+                                        <Button icon="pi pi-plus" text rounded size="small"
+                                            @click="incrementQty(data.item_code, detail.warehouse, detail.location)"
+                                            class="qty-btn" />
+                                    </div>
+                                </template>
+                            </Column>
                         </DataTable>
+                        <div class="cart-action-row">
+                            <span class="cart-total-label">รวมสั่ง: <b>{{ totalOrderQty(data.item_code, expandedDetails[data.item_code]) }}</b></span>
+                            <Button
+                                icon="pi pi-shopping-cart"
+                                :label="`เพิ่มลงตะกร้า${totalOrderQty(data.item_code, expandedDetails[data.item_code]) > 0 ? ' (' + totalOrderQty(data.item_code, expandedDetails[data.item_code]) + ')' : ''}`"
+                                :disabled="totalOrderQty(data.item_code, expandedDetails[data.item_code]) <= 0"
+                                :loading="addingToCart[data.item_code]"
+                                @click="addToCartFromDetail(data)"
+                            />
+                        </div>
                         </template>
 
                         <div v-else class="text-center" style="padding: 1rem; color: #999"><i class="pi pi-info-circle"></i> ไม่พบข้อมูลรายละเอียด</div>
+
+                        <!-- รูปสินค้า -->
+                        <div class="expansion-images">
+                            <div v-if="expandedImagesLoading[data.item_code]" class="text-center" style="padding: 1rem">
+                                <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem"></i>
+                            </div>
+                            <Galleria
+                                v-else-if="expandedImages[data.item_code] && expandedImages[data.item_code].length > 0"
+                                :value="expandedImages[data.item_code]"
+                                :numVisible="5"
+                                :circular="true"
+                                :showThumbnails="expandedImages[data.item_code].length > 1"
+                                :showItemNavigators="expandedImages[data.item_code].length > 1"
+                                containerClass="w-full galleria-expansion"
+                            >
+                                <template #item="slotProps">
+                                    <div class="flex justify-center items-center" style="height: 220px; background: #f8f9fa; border-radius: 6px">
+                                        <img
+                                            :src="slotProps.item.itemImageSrc"
+                                            :alt="slotProps.item.alt"
+                                            @error="$event.target.src = ProductService.getPlaceholderImage()"
+                                            style="max-height: 200px; max-width: 100%; object-fit: contain; border-radius: 6px"
+                                        />
+                                    </div>
+                                </template>
+                                <template #thumbnail="slotProps">
+                                    <img
+                                        :src="slotProps.item.thumbnailImageSrc"
+                                        :alt="slotProps.item.alt"
+                                        @error="$event.target.src = ProductService.getPlaceholderImage()"
+                                        style="width: 50px; height: 50px; object-fit: contain; border-radius: 4px"
+                                    />
+                                </template>
+                            </Galleria>
+                        </div>
                     </div>
                 </template>
             </DataTable>
@@ -783,6 +971,17 @@ onMounted(() => {
     height: 2rem !important;
     padding: 0 !important;
 }
+
+/* ===== Promo text from HTML ===== */
+.promo-text {
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #d97706;
+    font-weight: 500;
+}
+:deep(.promo-text p) {
+    margin: 0;
+}
 .filter-actions {
     display: flex;
     gap: 0.5rem;
@@ -794,13 +993,28 @@ onMounted(() => {
     background: #eef6ff;
     border-radius: 8px;
 }
-.expansion-content h4 {
-    margin: 0 0 0.75rem 0;
+.expansion-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+.expansion-header h4 {
+    margin: 0;
     font-size: 0.95rem;
     color: var(--primary-color, #3b82f6);
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+.expansion-img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    border-radius: 6px;
+    border: 1px solid var(--surface-border, #e5e7eb);
+    background: #fff;
+    flex-shrink: 0;
 }
 :deep(.detail-table) {
     font-size: 0.9rem;
@@ -814,6 +1028,66 @@ onMounted(() => {
     align-items: center;
     gap: 0.75rem;
     font-size: 0.95rem;
+}
+.qty-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+.qty-btn {
+    width: 1.8rem !important;
+    height: 1.8rem !important;
+    padding: 0 !important;
+}
+.qty-input {
+    width: 2.5rem;
+    text-align: center;
+    border: 1px solid var(--surface-border, #d1d5db);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 0.88rem;
+    background: #fff;
+}
+.cart-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--surface-border, #e5e7eb);
+}
+.cart-total-label {
+    font-size: 0.9rem;
+    color: var(--text-color-secondary, #6c757d);
+}
+.expansion-promo {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    margin-bottom: 0.75rem;
+    color: #b45309;
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+:deep(.expansion-promo p) {
+    margin: 0;
+}
+.expansion-images {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--surface-border, #e5e7eb);
+}
+:deep(.galleria-expansion) {
+    max-width: 480px;
+    margin: 0 auto;
+}
+:deep(.galleria-expansion .p-galleria-thumbnail-container) {
+    background: #f1f5f9;
+    padding: 0.4rem;
+    border-radius: 6px;
+    margin-top: 0.5rem;
 }
 @media screen and (max-width: 768px) {
     .filter-grid {
