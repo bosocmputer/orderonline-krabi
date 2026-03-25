@@ -1,9 +1,7 @@
 <script setup>
 import BalanceService from '@/services/BalanceService';
 import ProductService from '@/services/ProductService';
-import { useCartStore } from '@/stores/cartStore';
 import Galleria from 'primevue/galleria';
-import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -17,10 +15,21 @@ const expandedPriceLoading = ref({});
 const expandedImages = ref({});
 const expandedImagesLoading = ref({});
 
-const cartStore = useCartStore();
-const toast = useToast();
-const locationQuantities = ref({});  // key = itemCode_warehouse_location
-const addingToCart = ref({});        // key = itemCode
+const locationQuantities = ref({});
+
+function getSelectedWarehouse() {
+    try {
+        const data = localStorage.getItem('_selectedWarehouse');
+        if (data) return JSON.parse(data).code || '';
+    } catch (e) { /* ignore */ }
+    return '';
+}
+const selectedWarehouse = ref(getSelectedWarehouse());
+
+function isDetailOrderable(detail) {
+    return detail.warehouse === selectedWarehouse.value;
+}
+
 
 const totalRecords = ref(0);
 const currentPage = ref(0);
@@ -49,8 +58,17 @@ function getSearchQuery() {
         .join('|');
 }
 
+const stockFilterOptions = [
+    { label: 'ทั้งหมด', value: 'all' },
+    { label: 'มีคงเหลือ', value: 'gt0' },
+    { label: 'หมด', value: 'zero' },
+    { label: 'ใกล้หมด', value: 'low' }
+];
+
 const filters = reactive({
     search: '',
+    stockFilter: localStorage.getItem('_isstock') === '1' ? 'gt0' : 'all',
+    warehouseGroup: [],
     warehouse: [],
     shelfFrom: [],
     shelfTo: [],
@@ -64,6 +82,21 @@ const filters = reactive({
 
 const warehouseOptions = ref([]);
 const shelfOptions = ref([]);
+
+// กลุ่มคลัง — คำนวณจาก warehouseOptions โดยใช้ตัวเลขท้าย code
+const warehouseGroupOptions = computed(() => {
+    const groupMap = {};
+    for (const wh of warehouseOptions.value) {
+        const match = wh.code.match(/(\d+)$/);
+        if (!match) continue;
+        const num = match[1];
+        if (!groupMap[num]) groupMap[num] = [];
+        groupMap[num].push(wh.code);
+    }
+    return Object.keys(groupMap)
+        .sort()
+        .map((num) => ({ label: `กลุ่ม ${num}`, value: groupMap[num].join(',') }));
+});
 const groupSubOptions = ref([]);
 const groupSub2Options = ref([]);
 const brandOptions = ref([]);
@@ -109,7 +142,12 @@ async function loadBalanceList() {
     try {
         const params = {
             search: filters.search,
-            warehouse: filters.warehouse.join(','),
+            warehouse: (() => {
+                const fromGroups = (filters.warehouseGroup || []).flatMap((g) => g.split(','));
+                const fromSelect = filters.warehouse || [];
+                const merged = [...new Set([...fromGroups, ...fromSelect])];
+                return merged.join(',');
+            })(),
             shelfFrom: filters.shelfFrom.length > 0 ? filters.shelfFrom[0] : '',
             shelfTo: filters.shelfTo.length > 0 ? filters.shelfTo[0] : '',
             groupSub: filters.groupSub.join(','),
@@ -122,7 +160,7 @@ async function loadBalanceList() {
             sortCol: sortColumn.value,
             offset: currentPage.value * pageSize.value,
             limit: pageSize.value,
-            isstock: localStorage.getItem('_isstock') || '0'
+            stockfilter: filters.stockFilter || 'all'
         };
         const response = await BalanceService.getBalanceListLite(params);
         if (response.data && response.data.success) {
@@ -172,8 +210,11 @@ async function lazyLoadStockBatch() {
                 }
                 return { ...row, balance_qty_current_year: '0', balance_qty_other_year: '0', _stockLoaded: true };
             });
-            if (localStorage.getItem('_isstock') === '1') {
+            const sf = filters.stockFilter || 'all';
+            if (sf === 'gt0') {
                 mapped = mapped.filter((row) => parseFloat(row.balance_qty_current_year) > 0 || parseFloat(row.balance_qty_other_year) > 0);
+            } else if (sf === 'zero') {
+                mapped = mapped.filter((row) => parseFloat(row.balance_qty_current_year) <= 0 && parseFloat(row.balance_qty_other_year) <= 0);
             }
             balanceData.value = mapped;
         }
@@ -278,75 +319,6 @@ function getQty(itemCode, warehouse, location) {
     return locationQuantities.value[getQtyKey(itemCode, warehouse, location)] || 0;
 }
 
-function setQty(itemCode, warehouse, location, val) {
-    const num = parseInt(val);
-    locationQuantities.value[getQtyKey(itemCode, warehouse, location)] = isNaN(num) || num < 0 ? 0 : num;
-}
-
-function incrementQty(itemCode, warehouse, location) {
-    const key = getQtyKey(itemCode, warehouse, location);
-    locationQuantities.value[key] = (locationQuantities.value[key] || 0) + 1;
-}
-
-function decrementQty(itemCode, warehouse, location) {
-    const key = getQtyKey(itemCode, warehouse, location);
-    const cur = locationQuantities.value[key] || 0;
-    locationQuantities.value[key] = cur > 0 ? cur - 1 : 0;
-}
-
-function totalOrderQty(itemCode, details) {
-    if (!details) return 0;
-    return details.reduce((sum, d) => sum + getQty(itemCode, d.warehouse, d.location), 0);
-}
-
-async function addToCartFromDetail(data) {
-    const itemCode = data.item_code;
-    const details = expandedDetails.value[itemCode];
-    if (!details) return;
-
-    const cartItems = [];
-    for (const d of details) {
-        const qty = getQty(itemCode, d.warehouse, d.location);
-        if (qty <= 0) continue;
-        const existing = cartStore.cartItems.find(
-            (i) => i.item_code === itemCode && i.unit_code === d.unit_code && i.shelf_code === d.location
-        );
-        const finalQty = existing ? parseInt(existing.qty) + qty : qty;
-        cartItems.push({
-            id: `${itemCode}_${d.unit_code}_${d.location}`,
-            item_code: itemCode,
-            code: itemCode,
-            name: data.item_name,
-            item_name: data.item_name,
-            price: parseFloat(d.price || 0),
-            image: ProductService.getProductImageUrl(itemCode),
-            category: '',
-            unit: d.unit_code,
-            unit_code: d.unit_code,
-            barcode: '',
-            wh_code: d.warehouse,
-            shelf_code: d.location,
-            location_name: d.location,
-            qty: finalQty
-        });
-    }
-
-    if (cartItems.length === 0) return;
-
-    addingToCart.value[itemCode] = true;
-    try {
-        await cartStore.addMultipleToCart(cartItems);
-        // reset qty หลังสำเร็จ
-        for (const d of details) {
-            locationQuantities.value[getQtyKey(itemCode, d.warehouse, d.location)] = 0;
-        }
-        toast.add({ severity: 'success', summary: 'เพิ่มสินค้าแล้ว', detail: `เพิ่ม ${data.item_name} ลงตะกร้าแล้ว`, life: 3000 });
-    } catch {
-        toast.add({ severity: 'error', summary: 'เกิดข้อผิดพลาด', detail: 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้', life: 3000 });
-    } finally {
-        addingToCart.value[itemCode] = false;
-    }
-}
 
 function onPage(event) {
     currentPage.value = event.page;
@@ -384,6 +356,8 @@ function onSearchKeyup(e) {
 function clearFilters() {
     searchFields.value = [{ id: searchFieldIdCounter++, value: '' }];
     filters.search = '';
+    filters.stockFilter = 'all';
+    filters.warehouseGroup = null;
     filters.warehouse = [];
     filters.shelfFrom = [];
     filters.shelfTo = [];
@@ -491,6 +465,31 @@ onMounted(() => {
                             class="search-btn-add"
                         />
                     </div>
+                </div>
+
+                <!-- สถานะสต๊อก -->
+                <div class="filter-item filter-item-wide">
+                    <label>สถานะสต๊อก</label>
+                    <SelectButton
+                        v-model="filters.stockFilter"
+                        :options="stockFilterOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        class="stock-filter-btn"
+                    />
+                </div>
+
+                <!-- กลุ่มคลัง -->
+                <div class="filter-item filter-item-wide">
+                    <label>กลุ่มคลัง</label>
+                    <SelectButton
+                        v-model="filters.warehouseGroup"
+                        :options="warehouseGroupOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        multiple
+                        class="stock-filter-btn"
+                    />
                 </div>
 
                 <!-- คลังสินค้า -->
@@ -757,7 +756,9 @@ onMounted(() => {
 
                         <template v-else-if="expandedDetails[data.item_code] && expandedDetails[data.item_code].length > 0">
                             <ProgressBar v-if="expandedPriceLoading[data.item_code]" mode="indeterminate" style="height: 3px; margin-bottom: 0.5rem" />
-                            <DataTable :value="expandedDetails[data.item_code]" class="detail-table" responsiveLayout="scroll" :rowStyle="getDetailRowStyle">
+                            <DataTable :value="expandedDetails[data.item_code]" class="detail-table" responsiveLayout="scroll" :rowStyle="getDetailRowStyle"
+                                :rowClass="(row) => !isDetailOrderable(row) ? 'row-not-orderable' : ''"
+                            >
                             <Column field="warehouse" header="คลัง" style="min-width: 100px">
                                 <template #body="{ data: detail }">
                                     <span class="font-bold">{{ detail.warehouse }}</span>
@@ -790,34 +791,7 @@ onMounted(() => {
                                     {{ (parseFloat(detail.balance_qty) - parseFloat(detail.overdue || 0)).toFixed(0) }}
                                 </template>
                             </Column>
-                            <Column header="สั่ง" style="min-width: 140px">
-                                <template #body="{ data: detail }">
-                                    <div class="qty-input-row">
-                                        <Button icon="pi pi-minus" text rounded size="small"
-                                            :disabled="getQty(data.item_code, detail.warehouse, detail.location) <= 0"
-                                            @click="decrementQty(data.item_code, detail.warehouse, detail.location)"
-                                            class="qty-btn" />
-                                        <input type="text"
-                                            :value="getQty(data.item_code, detail.warehouse, detail.location)"
-                                            @change="setQty(data.item_code, detail.warehouse, detail.location, $event.target.value)"
-                                            class="qty-input" />
-                                        <Button icon="pi pi-plus" text rounded size="small"
-                                            @click="incrementQty(data.item_code, detail.warehouse, detail.location)"
-                                            class="qty-btn" />
-                                    </div>
-                                </template>
-                            </Column>
                         </DataTable>
-                        <div class="cart-action-row">
-                            <span class="cart-total-label">รวมสั่ง: <b>{{ totalOrderQty(data.item_code, expandedDetails[data.item_code]) }}</b></span>
-                            <Button
-                                icon="pi pi-shopping-cart"
-                                :label="`เพิ่มลงตะกร้า${totalOrderQty(data.item_code, expandedDetails[data.item_code]) > 0 ? ' (' + totalOrderQty(data.item_code, expandedDetails[data.item_code]) + ')' : ''}`"
-                                :disabled="totalOrderQty(data.item_code, expandedDetails[data.item_code]) <= 0"
-                                :loading="addingToCart[data.item_code]"
-                                @click="addToCartFromDetail(data)"
-                            />
-                        </div>
                         </template>
 
                         <div v-else class="text-center" style="padding: 1rem; color: #999"><i class="pi pi-info-circle"></i> ไม่พบข้อมูลรายละเอียด</div>
@@ -1047,6 +1021,18 @@ onMounted(() => {
     padding: 2px 4px;
     font-size: 0.88rem;
     background: #fff;
+}
+.stock-filter-btn {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+:deep(.stock-filter-btn .p-selectbutton .p-button) {
+    font-size: 0.82rem;
+    padding: 0.3rem 0.75rem;
+}
+.row-not-orderable {
+    opacity: 0.6;
 }
 .cart-action-row {
     display: flex;

@@ -54,7 +54,7 @@ export default {
                 sort_col: params.sortCol || '',
                 offset: params.offset || 0,
                 limit: params.limit || 30,
-                isstock: params.isstock || '0'
+                stockfilter: params.stockfilter || 'all'
             }
         });
     },
