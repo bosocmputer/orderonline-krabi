@@ -2256,7 +2256,12 @@ public class OrderOnlineService {
             @QueryParam("sort") String strSort,
             @QueryParam("sort_col") String strSortCol,
             @QueryParam("offset") String strOffset,
-            @QueryParam("limit") String strLimit
+            @QueryParam("limit") String strLimit,
+            @QueryParam("stockfilter") String strStockFilter,
+            @QueryParam("qty_conditions") String strQtyConditions,
+            @QueryParam("dot_years") String strDotYears,
+            @QueryParam("price_from") String strPriceFrom,
+            @QueryParam("price_to") String strPriceTo
     ) {
         String strProvider = "DATA";
         String strDatabaseName = "data2";
@@ -2291,6 +2296,11 @@ public class OrderOnlineService {
             String __format = (strFormat != null && !strFormat.trim().isEmpty()) ? strFormat.trim() : "";
             String __sort = (strSort != null && !strSort.trim().isEmpty()) ? strSort.trim() : "asc";
             String __sortCol = (strSortCol != null && !strSortCol.trim().isEmpty()) ? strSortCol.trim() : "";
+            String __stockFilter = (strStockFilter != null && !strStockFilter.trim().isEmpty()) ? strStockFilter.trim() : "all";
+            String __qtyConditions = (strQtyConditions != null && !strQtyConditions.trim().isEmpty()) ? strQtyConditions.trim() : "";
+            String __dotYears = (strDotYears != null && !strDotYears.trim().isEmpty()) ? strDotYears.trim() : "";
+            String __priceFrom = (strPriceFrom != null && !strPriceFrom.trim().isEmpty()) ? strPriceFrom.trim() : "";
+            String __priceTo = (strPriceTo != null && !strPriceTo.trim().isEmpty()) ? strPriceTo.trim() : "";
 
             Integer flag = 0;
             StringBuilder __strQuery = new StringBuilder();
@@ -2306,6 +2316,7 @@ public class OrderOnlineService {
             __strQuery.append("  ic_inventory.name_1       as item_name, ");
             __strQuery.append("  ic_inventory.unit_standard as unit_code, ");
             __strQuery.append("  ic_inventory.balance_qty, ");
+            __strQuery.append("  coalesce(ic_inventory.price_0, 0) as price_0, ");
             __strQuery.append("  coalesce((select location ");
             __strQuery.append("    from sml_ic_function_stock_balance_warehouse_location(current_date, ic_inventory.code, '', '') ");
             __strQuery.append("    where balance_qty > 0 order by location asc limit 1), '') as year_weak, ");
@@ -2351,10 +2362,47 @@ public class OrderOnlineService {
                 __strIcQuerySub.append(" and ic_inventory.item_pattern in ('" + String.join("','", vals) + "') ");
             }
 
+            // ---------- stockfilter ----------
+            if (__stockFilter.equals("gt0")) {
+                __strQuery.append(" and ic_inventory.balance_qty > 0 ");
+            } else if (__stockFilter.equals("zero")) {
+                __strQuery.append(" and ic_inventory.balance_qty = 0 ");
+            } else if (__stockFilter.equals("low")) {
+                __strQuery.append(" and ic_inventory.balance_qty > 0 and ic_inventory.balance_qty <= 4 ");
+            }
+
+            // ---------- qty_conditions (pipe-separated e.g. ">=4|<10") ----------
+            if (!__qtyConditions.isEmpty()) {
+                for (String cond : __qtyConditions.split("\|")) {
+                    cond = cond.trim();
+                    if (!cond.isEmpty()) {
+                        __strQuery.append(" and ic_inventory.balance_qty " + cond + " ");
+                    }
+                }
+            }
+
+            // ---------- dot_years: handled in lot-level query when flag=1 ----------
+                __strQuery.append(" and ic_inventory.code in (select distinct ic_code from sml_ic_function_stock_balance_warehouse_location(current_date, (select string_agg(code,',') from ic_inventory where balance_qty > 0), '', '') where balance_qty > 0 and left(location,2) in ('" + dotIn + "')) ");
+                __strIcQuerySub.append(" and ic_inventory.code in (select distinct ic_code from sml_ic_function_stock_balance_warehouse_location(current_date, (select string_agg(code,',') from ic_inventory where balance_qty > 0), '', '') where balance_qty > 0 and left(location,2) in ('" + dotIn + "')) ");
+            }
+
+            // ---------- price range ----------
+            if (!__priceFrom.isEmpty()) {
+                __strQuery.append(" and ic_inventory.price_0 >= " + __priceFrom + " ");
+            }
+            if (!__priceTo.isEmpty()) {
+                __strQuery.append(" and ic_inventory.price_0 <= " + __priceTo + " ");
+            }
+
+
             // ---------- warehouse / shelf flag ----------
             if (!__warehouse.isEmpty()) {
                 __strWarehouseQuerySub.append(__warehouse);
                 flag = 1;
+            // force flag=1 when dot_years or qty_conditions need lot-level filtering
+            if ((!__dotYears.isEmpty() || !__qtyConditions.isEmpty()) && flag == 0) {
+                flag = 1;
+            }
             }
             if (!__shelfFrom.isEmpty() && __shelfTo.isEmpty()) {
                 __strShelfQuerySub.append(__shelfFrom);
@@ -2393,18 +2441,43 @@ public class OrderOnlineService {
                 __strQuery.append("  '@shelf_code@' as shelf_list, ");
                 __strQuery.append("  '@wh_code@'    as warehouse_list, ");
                 __strQuery.append("  sum(balance_qty) as balance_qty, ");
+                __strQuery.append("  coalesce((select price_0 from ic_inventory where code = stk.ic_code limit 1), 0) as price_0, ");
                 __strQuery.append("  (select location from sml_ic_function_stock_balance_warehouse_location(current_date, stk.ic_code, '@wh_code@', '@shelf_code@') ");
                 __strQuery.append("    where balance_qty > 0 order by location asc limit 1) as year_weak ");
                 __strQuery.append("from sml_ic_function_stock_balance_warehouse_location(current_date, '@ic_code@', '@wh_code@', '@shelf_code@') as stk ");
-                __strQuery.append("where stk.balance_qty > 0 ");
+                __strQuery.append("where stk.balance_qty > 0 @dot_filter@ ");
                 __strQuery.append("group by stk.ic_code, stk.ic_name, stk.ic_unit_code ");
+
+                // ---------- dot_years filter in lot-level query ----------
+                if (!__dotYears.isEmpty()) {
+                    String[] yrs = __dotYears.split(",");
+                    StringBuilder dotIn = new StringBuilder();
+                    for (String yr : yrs) {
+                        String yy = yr.trim().length() == 4 ? yr.trim().substring(2) : yr.trim();
+                        if (dotIn.length() > 0) dotIn.append("','");
+                        dotIn.append(yy);
+                    }
+                    __strQuery = new StringBuilder(__strQuery.toString().replace("@dot_filter@",
+                        "and left(stk.location,2) in ('" + dotIn + "')"));
+                }
+
+                // ---------- qty_conditions HAVING ----------
+                if (!__qtyConditions.isEmpty()) {
+                    __strQuery.append(" having 1=1 ");
+                    for (String cond : __qtyConditions.split("\|")) {
+                        cond = cond.trim();
+                        if (!cond.isEmpty()) {
+                            __strQuery.append(" and sum(stk.balance_qty) " + cond + " ");
+                        }
+                    }
+                }
 
                 __strQuery = new StringBuilder(
                         __strQuery.toString()
                                 .replace("@ic_code@", __strIcQuerySub.toString())
                                 .replace("@wh_code@", __strWarehouseQuerySub.toString())
                                 .replace("@shelf_code@", __strShelfQuerySub.toString())
-                );
+                .replace("@dot_filter@", ""));
 
                 if (__sortCol.isEmpty()) {
                     __strQuery.append(" order by stk.ic_code ").append(__sort).append(" ");
@@ -2448,6 +2521,8 @@ public class OrderOnlineService {
                 obj.put("warehouse_list", __rsData.getString("warehouse_list"));
                 // balance_qty + year_weak มาจาก SQL, price ส่ง placeholder (lazy load ทีหลัง)
                 obj.put("price", "");
+                String p0 = __rsData.getString("price_0");
+                obj.put("price_0", p0 != null ? p0 : "0");
                 String bq = __rsData.getString("balance_qty");
                 obj.put("balance_qty", String.format("%,.0f", Float.parseFloat(bq != null ? bq : "0")));
                 String yw = __rsData.getString("year_weak");

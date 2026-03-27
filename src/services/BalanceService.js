@@ -54,7 +54,11 @@ export default {
                 sort_col: params.sortCol || '',
                 offset: params.offset || 0,
                 limit: params.limit || 30,
-                stockfilter: params.stockfilter || 'all'
+                stockfilter: params.stockfilter || 'all',
+                qty_conditions: params.qty_conditions || '',
+                dot_years: params.dot_years || '',
+                price_from: params.price_from || '',
+                price_to: params.price_to || ''
             }
         });
     },

@@ -82,12 +82,13 @@ const model = computed(() => {
                 icon: 'pi pi-fw pi-shopping-bag',
                 to: '/'
             },
+
+            cartMenuItem.value,
             {
-                label: 'รายการสินค้า',
+                label: 'ใบเสนอราคา',
                 icon: 'pi pi-fw pi-list',
                 to: '/balance-list'
-            },
-            cartMenuItem.value
+            }
         ]
     });
 
