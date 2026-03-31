@@ -926,27 +926,25 @@ onMounted(() => {
           style="min-width: 280px"
         >
           <template #body="{ data }">
-            <div class="font-bold">{{ data.item_code }}</div>
-            <div style="color: #555; font-size: 0.88rem">{{ data.item_name }}</div>
+            <div class="font-bold">{{ data.item_name }}</div>
+            <div style="color: #555; font-size: 0.88rem">{{ data.item_code }}</div>
           </template>
-        </Column>
-
-        <Column
+        </Column>        <Column
           field="price_0"
           header="ราคาขาย 0%"
           sortable
           style="min-width: 120px; text-align: right"
+          headerClass="header-align-right"
         >
           <template #body="{ data }">
             <span>{{ parsePrice(data.price_0) }}</span>
           </template>
-        </Column>
-
-        <Column
+        </Column>        <Column
           field="price_9"
           header="ราคาขายสด"
           sortable
           style="min-width: 120px; text-align: right"
+          headerClass="header-align-right"
         >
           <template #body="{ data }">
             <span>{{ parsePrice(data.price_9) }}</span>
@@ -1611,6 +1609,42 @@ onMounted(() => {
   background: #fdebd0 !important;
   font-weight: 600;
 }
+
+/* ===== Table Gridlines - Main Table ===== */
+:deep(.balance-table .p-datatable-table) {
+  border-collapse: collapse;
+}
+:deep(.balance-table .p-datatable-thead > tr > th) {
+  border: 1px solid #d1d5db;
+  border-bottom: 2px solid #9ca3af;
+}
+:deep(.balance-table .p-datatable-tbody > tr > td) {
+  border: 1px solid #e5e7eb;
+}
+:deep(.balance-table .p-datatable-tfoot > tr > td) {
+  border: 1px solid #d1d5db;
+}
+
+/* ===== Right-align header content for price columns ===== */
+:deep(.header-align-right) {
+  text-align: right;
+}
+:deep(.header-align-right .p-datatable-column-header-content) {
+  justify-content: flex-end;
+}
+
+/* ===== Table Gridlines - Detail Table ===== */
+:deep(.detail-table .p-datatable-table) {
+  border-collapse: collapse;
+}
+:deep(.detail-table .p-datatable-thead > tr > th) {
+  border: 1px solid #d1d5db;
+  border-bottom: 2px solid #9ca3af;
+}
+:deep(.detail-table .p-datatable-tbody > tr > td) {
+  border: 1px solid #e5e7eb;
+}
+
 .footer-summary {
   display: flex;
   align-items: center;
@@ -1784,8 +1818,10 @@ onMounted(() => {
 }
 .quotation-action-cell {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .print-only {
   display: none;
