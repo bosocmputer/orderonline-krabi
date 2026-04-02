@@ -1,11 +1,13 @@
 <script setup>
 import BalanceService from "@/services/BalanceService";
+import CartService from "@/services/CartService";
 import ProductService from "@/services/ProductService";
 import { useAuthenStore } from "@/stores/authen";
 import { openQuotationPdf } from "@/utils/quotationPdf";
 import Checkbox from "primevue/checkbox";
 import Drawer from "primevue/drawer";
 import Galleria from "primevue/galleria";
+import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
@@ -47,6 +49,8 @@ const quotationTotalItems = computed(() => quotationCart.value.length);
 
 const authenStore = useAuthenStore();
 const toast = useToast();
+const confirm = useConfirm();
+const sendingQuotationOrder = ref(false);
 
 function addToQuotationCart(headerRow, detail) {
   const qty = getQty(headerRow.item_code, detail.warehouse, detail.location);
@@ -136,6 +140,150 @@ function printQuotation() {
     warehouseName: whName,
     createdBy: authenStore.empData?.user_code || "",
   });
+}
+
+// ===== SEND QUOTATION ORDER =====
+function generateQuotationOrderNumber() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const dateStr = `${year}${month}${day}`;
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let guid = "";
+  for (let i = 0; i < 3; i++) {
+    guid += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  guid += Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
+  return `MQT${dateStr}-${guid}`;
+}
+
+
+
+function confirmSendQuotationOrder() {
+  if (quotationCart.value.length === 0) return;
+  confirm.require({
+    message: `ต้องการส่งใบเสนอราคา ${quotationCart.value.length} รายการ ยอดรวม ${quotationTotal.value.toLocaleString("en-US", { minimumFractionDigits: 2 })} บาท ไปยังระบบหรือไม่?`,
+    header: "ยืนยันส่งใบเสนอราคา",
+    icon: "pi pi-send",
+    acceptLabel: "ยืนยัน ส่งใบเสนอราคา",
+    rejectLabel: "ยกเลิก",
+    acceptClass: "p-button-warning",
+    accept: () => {
+      sendQuotationOrder();
+    },
+  });
+}
+
+async function sendQuotationOrder() {
+  if (quotationCart.value.length === 0) return;
+  sendingQuotationOrder.value = true;
+  try {
+    const now = new Date();
+    const formattedDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
+    const formattedTime = now.toTimeString().slice(0, 5); // HH:MM
+    const docNo = generateQuotationOrderNumber();
+    const custCode = localStorage.getItem("_userCode") || "";
+    const empCode = authenStore.empData?.user_code || "";
+    const saleType = localStorage.getItem("_saleType") || "0";
+
+    if (!custCode) {
+      toast.add({
+        severity: "error",
+        summary: "ผิดพลาด",
+        detail: "ไม่พบรหัสลูกค้า กรุณาเข้าสู่ระบบใหม่",
+        life: 4000,
+      });
+      sendingQuotationOrder.value = false;
+      return;
+    }    // จัดเตรียมข้อมูลสินค้า
+    const items = quotationCart.value.map((item) => {
+      const sumAmount = (
+        parseFloat(item.price || 0) * parseInt(item.qty || 0)
+      ).toString();
+      return {
+        item_code: item.item_code,
+        item_name: item.item_name,
+        barcode: "",
+        qty: item.qty.toString(),
+        price: (item.price || 0).toString(),
+        sum_amount: sumAmount,
+        unit_code: item.unit_code || "เส้น",
+        wh_code: item.wh_code || "KBG1",        shelf_code: item.shelf_code || "",
+        remark: item.shelf_code || "",
+        ratio: "1",
+        stand_value: "1",
+        divide_value: "1",
+        tax_type: "0",
+      };
+    });
+
+    // คำนวณยอดรวม
+    const totalValue = items
+      .reduce((sum, item) => sum + (parseFloat(item.sum_amount) || 0), 0)
+      .toString();
+
+    const totalExceptVat = items
+      .filter((item) => item.tax_type === "1")
+      .reduce((sum, item) => sum + (parseFloat(item.sum_amount) || 0), 0)
+      .toString();
+
+    const totalAfterVat = items
+      .filter((item) => item.tax_type === "0")
+      .reduce((sum, item) => sum + (parseFloat(item.sum_amount) || 0), 0)
+      .toString();
+
+    const orderData = {
+      cust_code: custCode,
+      emp_code: empCode,
+      doc_date: formattedDate,
+      doc_time: formattedTime,
+      doc_no: docNo,
+      items: items,
+      total_amount: totalValue,
+      total_value: totalValue,
+      total_except_vat: totalExceptVat,
+      total_after_vat: totalAfterVat,
+      telephone: authenStore.userTelephone || "",
+      remark: "",
+      send_type: "0",
+      address: authenStore.userAddress || "",
+      address_name: "",
+      wh_code: "KBG1",
+      branch_code: "KBG1",
+      sale_type: saleType,
+    };
+
+    console.log("Sending quotation order:", JSON.stringify(orderData, null, 2));
+
+    const response = await CartService.sendOrder(orderData);
+
+    if (response.data && response.data.success) {
+      // ล้างตะกร้าใบเสนอราคา
+      clearQuotationCart();
+      quotationPanelVisible.value = false;
+      toast.add({
+        severity: "success",
+        summary: "สำเร็จ",
+        detail: `ส่งใบเสนอราคาเรียบร้อยแล้ว (${docNo})`,
+        life: 5000,
+      });
+    } else {
+      throw new Error(response.data?.msg || "ไม่สามารถส่งใบเสนอราคาได้");
+    }
+  } catch (err) {
+    console.error("Error sending quotation order:", err);
+    toast.add({
+      severity: "error",
+      summary: "ผิดพลาด",
+      detail: err.message || "ไม่สามารถส่งใบเสนอราคาได้ กรุณาลองอีกครั้ง",
+      life: 5000,
+    });
+  } finally {
+    sendingQuotationOrder.value = false;
+  }
 }
 
 function getSelectedWarehouse() {
@@ -1269,8 +1417,7 @@ onMounted(() => {
               }}
               บาท</span
             >
-          </div>
-          <div class="quotation-footer-actions">
+          </div>          <div class="quotation-footer-actions">
             <Button
               label="ล้างตะกร้า"
               icon="pi pi-trash"
@@ -1285,6 +1432,17 @@ onMounted(() => {
               severity="success"
               @click="printQuotation"
               :disabled="quotationCart.length === 0"
+            />
+          </div>
+          <div class="quotation-footer-actions" style="margin-top: 0.5rem">
+            <Button
+              label="ส่งใบเสนอราคา"
+              icon="pi pi-send"
+              severity="warning"
+              @click="confirmSendQuotationOrder"
+              :disabled="quotationCart.length === 0 || sendingQuotationOrder"
+              :loading="sendingQuotationOrder"
+              style="width: 100%"
             />
           </div>
         </div>
