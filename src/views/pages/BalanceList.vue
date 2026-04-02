@@ -182,9 +182,8 @@ function getSearchQuery() {
 
 const stockFilterOptions = [
   { label: "ทั้งหมด", value: "all" },
-  { label: "มีคงเหลือ", value: "gt0" },
-  { label: "หมด", value: "zero" },
-  { label: "ใกล้หมด", value: "low" },
+  { label: "หมด (คงเหลือ 0)", value: "zero" },
+  { label: "ใกล้หมด (คงเหลือ < 4)", value: "low" },
 ];
 
 const filters = reactive({
@@ -200,7 +199,8 @@ const filters = reactive({
   model: [],
   category: [],
   format: [],
-  qtyConditions: [{ op: ">=", val: "" }],
+  qtyFrom: "",
+  qtyTo: "",
   dotYears: [],
   priceFrom: "",
   priceTo: "",
@@ -296,10 +296,8 @@ async function loadBalanceList() {
       offset: currentPage.value * pageSize.value,
       limit: pageSize.value,
       stockfilter: filters.stockFilter || "all",
-      qty_conditions: filters.qtyConditions
-        .filter((c) => c.val !== "")
-        .map((c) => c.op + c.val)
-        .join("|"),
+      qty_from: filters.qtyFrom || "",
+      qty_to: filters.qtyTo || "",
       dot_years: filters.dotYears.join(","),
       price_from: filters.priceFrom || "",
       price_to: filters.priceTo || "",
@@ -493,7 +491,8 @@ function clearFilters() {
   filters.model = [];
   filters.category = [];
   filters.format = [];
-  filters.qtyConditions = [{ op: ">=", val: "" }];
+  filters.qtyFrom = "";
+  filters.qtyTo = "";
   filters.dotYears = [];
   filters.priceFrom = "";
   filters.priceTo = "";
@@ -766,66 +765,23 @@ onMounted(() => {
           />
         </div>
 
-        <!-- จำนวนยางคงเหลือ (multi-condition) -->
-        <div class="filter-item filter-item-wide">
-          <label>จำนวนยางคงเหลือ</label>
-          <div
-            v-for="(cond, idx) in filters.qtyConditions"
-            :key="idx"
-            class="multi-cond-row"
-          >
-            <Select
-              v-model="cond.op"
-              :options="[
-                { label: '>=', value: '>=' },
-                { label: '>', value: '>' },
-                { label: '<=', value: '<=' },
-                { label: '<', value: '<' },
-                { label: '=', value: '=' },
-              ]"
-              optionLabel="label"
-              optionValue="value"
-              style="width: 80px"
-            />
-            <InputText
-              v-model="cond.val"
-              placeholder="จำนวน"
-              style="width: 100px"
-              type="number"
-            />
-            <Button
-              icon="pi pi-times"
-              text
-              rounded
-              severity="danger"
-              size="small"
-              v-if="filters.qtyConditions.length > 1"
-              @click="filters.qtyConditions.splice(idx, 1)"
-            />
-            <Button
-              icon="pi pi-plus"
-              text
-              rounded
-              severity="success"
-              size="small"
-              v-if="idx === filters.qtyConditions.length - 1"
-              @click="filters.qtyConditions.push({ op: '>=', val: '' })"
-            />
-          </div>
-        </div>
-
-        <!-- ปี DOT ยาง -->
+        <!-- จำนวนยางคงเหลือ (range) -->
         <div class="filter-item">
-          <label>ปี DOT ยาง</label>
-          <div class="dot-year-list">
-            <div v-for="opt in dotYearOptions" :key="opt.value" class="dot-year-item">
-              <Checkbox
-                v-model="filters.dotYears"
-                :value="opt.value"
-                :inputId="'dot_' + opt.value"
-              />
-              <label :for="'dot_' + opt.value">{{ opt.label }}</label>
-            </div>
+          <label>จำนวนยางคงเหลือ (จาก - ถึง)</label>
+          <div class="price-range-row">
+            <InputText
+              v-model="filters.qtyFrom"
+              placeholder="จากจำนวน"
+              type="number"
+              style="width: 110px"
+            />
+            <span>-</span>
+            <InputText
+              v-model="filters.qtyTo"
+              placeholder="ถึงจำนวน"
+              type="number"
+              style="width: 110px"
+            />
           </div>
         </div>
 
