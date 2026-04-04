@@ -1171,22 +1171,7 @@ onMounted(() => {
                     }}</span>
                   </template>
                 </Column>
-                <Column field="overdue" header="ค้างส่ง" style="min-width: 100px">
-                  <template #body="{ data: detail }">
-                    <span :style="getOverdueStyle(detail)">
-                      {{ parseFloat(detail.overdue || 0).toFixed(0) }}
-                    </span>
-                  </template>
-                </Column>
-                <Column header="ขายได้" style="min-width: 100px">
-                  <template #body="{ data: detail }">
-                    {{
-                      (
-                        parseFloat(detail.balance_qty) - parseFloat(detail.overdue || 0)
-                      ).toFixed(0)
-                    }}
-                  </template>
-                </Column>
+
                 <Column header="ใบเสนอราคา" style="min-width: 200px">
                   <template #body="{ data: detail }">
                     <div class="quotation-action-cell">
