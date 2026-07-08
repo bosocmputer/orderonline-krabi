@@ -868,6 +868,9 @@ const shouldShowTireYearSelector = computed(() => {
                         <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
                             {{ product.category }}
                         </div>
+
+                        <!-- ราคา -->
+                        <div class="font-bold text-primary">฿{{ parseFloat(product.price || 0).toLocaleString() }}</div>
                     </div>
                 </div>
             </div>
