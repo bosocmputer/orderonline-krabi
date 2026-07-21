@@ -78,6 +78,18 @@ export default {
     },
 
     /**
+     * Lazy load ยอดค้างรับ (acc_in_balance) สำหรับ item_codes batch
+     */
+    getBalanceReceivableBatch(itemCodes, custCode = '') {
+        return apiClient.get('/getBalanceReceivableBatch', {
+            params: {
+                item_codes: itemCodes,
+                cust_code: custCode
+            }
+        });
+    },
+
+    /**
      * Lazy load ราคา + stock สำหรับ item_codes batch
      */
     getBalanceItemPriceBatch(itemCodes, custCode = '', warehouse = '', shelfList = '') {

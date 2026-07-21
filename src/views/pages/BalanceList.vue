@@ -22,6 +22,9 @@ const expandedPriceLoading = ref({});
 const expandedImages = ref({});
 const expandedImagesLoading = ref({});
 
+const receivableData = ref({});
+const receivableLoading = ref(false);
+
 const locationQuantities = ref({});
 
 // ===== QUOTATION CART =====
@@ -397,10 +400,32 @@ const totalBalanceQty = computed(() => {
     }, 0);
 });
 
+async function lazyLoadReceivable() {
+    const itemCodes = balanceData.value.map((d) => d.item_code).filter(Boolean);
+    if (itemCodes.length === 0) return;
+    receivableLoading.value = true;
+    const custCode = localStorage.getItem('_userCode') || '';
+    try {
+        const response = await BalanceService.getBalanceReceivableBatch(itemCodes.join(','), custCode);
+        if (response.data && response.data.success) {
+            const map = {};
+            (response.data.data || []).forEach((r) => {
+                map[r.item_code] = r.acc_in_balance;
+            });
+            receivableData.value = map;
+        }
+    } catch (err) {
+        console.error('Error loading receivable batch:', err);
+    } finally {
+        receivableLoading.value = false;
+    }
+}
+
 async function loadBalanceList() {
     loading.value = true;
     expandedRows.value = {};
     expandedDetails.value = {};
+    receivableData.value = {};
     try {
         const params = {
             search: filters.search,
@@ -438,6 +463,7 @@ async function loadBalanceList() {
             if (response.data.pagination) {
                 hasNextPage.value = response.data.pagination.hasNext || false;
             }
+            lazyLoadReceivable();
         }
     } catch (err) {
         console.error('Error loading balance list:', err);
@@ -933,6 +959,14 @@ onMounted(() => {
                 <Column field="balance_qty_other_year" header="สต๊อกปีอื่น" sortable style="min-width: 110px; text-align: center">
                     <template #body="{ data }">
                         <Tag severity="warning" :value="qtyShow(data.balance_qty_other_year) + ' (' + data.unit_code + ')'" />
+                    </template>
+                </Column>
+
+                <Column field="acc_in_balance" header="ค้างรับ" style="min-width: 110px; text-align: center">
+                    <template #body="{ data }">
+                        <i v-if="receivableLoading && receivableData[data.item_code] === undefined" class="pi pi-spin pi-spinner" style="font-size: 0.9rem"></i>
+                        <span v-else-if="!receivableData[data.item_code] || parseFloat(receivableData[data.item_code]) === 0" style="color: #ccc">-</span>
+                        <Tag v-else severity="warning" :value="qtyShow(receivableData[data.item_code]) + ' (' + data.unit_code + ')'" />
                     </template>
                 </Column>
 
